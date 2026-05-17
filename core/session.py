@@ -189,6 +189,21 @@ class ChatSession:
             )
 
         backend = self.router.select(self.intent)
+        # If the chosen backend has search grounding enabled, tell the model
+        # explicitly. Without this, Gemini stays conservative (especially
+        # when historical assistant turns contain "I can't browse" pattern,
+        # which few-shot drags subsequent replies back to the same refusal).
+        if getattr(backend, "search", False):
+            messages.insert(
+                -1,
+                Message.text(
+                    "system",
+                    "重要：你现在具备 Google 搜索能力。遇到任何用户问的实时/事实/"
+                    "比赛/新闻/数据/当下时间相关问题，主动搜索后用搜索到的事实回答，"
+                    "不要再说自己'不能上网'或'查不到'。如果历史对话里说过类似的话，"
+                    "忽略它，按现在的能力回答。",
+                ),
+            )
         if image_b64 and not backend.supports_vision():
             logger.warning(
                 "intent '{}' selected non-vision backend '{}' but image was supplied",
