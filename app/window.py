@@ -469,19 +469,96 @@ class CompanionWindow(QMainWindow):
             self.chat.set_input_enabled(False)
 
     def _check_live2d_model(self, live2d_cfg) -> None:
-        """If the active Live2D model files aren't on disk, the WebView will
-        show a small red 'load error' in the corner. That's easy to miss, so
-        surface a clear chat-panel note pointing at the docs."""
+        """First-run UX: if no Live2D model is on disk, walk the user through
+        downloading one from Live2D's official sample page and installing it
+        from the zip. We never bundle or auto-download (the Free Material
+        License's redistribution clause makes that murky); the user pulls the
+        file themselves and we just unpack + wire it up."""
         model_file = live2d_cfg.model_dir / live2d_cfg.model_file
         if model_file.is_file():
             return
-        active = live2d_cfg.model_dir.name
-        self.chat.show_system_note(
-            f"Live2D 模型未找到（live2d/models/{active}/{live2d_cfg.model_file}）。"
-            f"把模型放到 live2d/models/<name>/ 并设置 config.yaml 的 "
-            f"live2d.active_model；或参见 docs/live2d-models.md。"
-            f"\n聊天功能不受影响。"
+        # Defer one tick so the chat panel exists and the user sees the window
+        # paint first; otherwise the modal lands on a blank screen.
+        QTimer.singleShot(400, self._show_live2d_install_wizard)
+
+    def _show_live2d_install_wizard(self) -> None:
+        from PySide6.QtCore import QUrl as _QUrl
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        box = QMessageBox(self)
+        box.setWindowTitle("没有 Live2D 模型")
+        box.setText(
+            "她还没有形象。从 Live2D 官方下载一个免费 sample 模型，"
+            "然后选择那个 zip 文件就能装上。"
         )
+        box.setInformativeText(
+            "提示：Live2D 官方 sample 对小型用途免费"
+            "（年收入 < 1000 万日元的个人/小公司可商用）。"
+            "\n聊天功能即使没有形象也能用。"
+        )
+        open_site_btn = box.addButton(
+            "打开 Live2D 下载页", QMessageBox.ButtonRole.ActionRole
+        )
+        pick_zip_btn = box.addButton(
+            "选择已下载的 zip", QMessageBox.ButtonRole.AcceptRole
+        )
+        box.addButton("以后再说", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked is open_site_btn:
+            QDesktopServices.openUrl(_QUrl("https://www.live2d.com/en/learn/sample/"))
+            # Re-show the wizard so the user can come back after downloading.
+            QTimer.singleShot(500, self._show_live2d_install_wizard)
+            return
+        if clicked is not pick_zip_btn:
+            return
+
+        zip_str, _ = QFileDialog.getOpenFileName(
+            self, "选择 Live2D 模型 zip", "", "Zip 文件 (*.zip)"
+        )
+        if not zip_str:
+            return
+        self._install_live2d_zip(Path(zip_str))
+
+    def _install_live2d_zip(self, zip_path: Path) -> None:
+        from PySide6.QtWidgets import QMessageBox
+
+        from core import preferences
+        from core.live2d_installer import InstallError, install_zip
+
+        try:
+            result = install_zip(zip_path)
+        except InstallError as e:
+            QMessageBox.warning(self, "安装失败", str(e))
+            return
+        except Exception as e:
+            logger.exception("live2d install failed")
+            QMessageBox.warning(self, "安装失败", f"{type(e).__name__}: {e}")
+            return
+
+        preferences.set_live2d_active_model(result.name)
+        self.chat.show_system_note(
+            f"已安装 Live2D 模型「{result.name}」"
+            f"（{result.expressions} 个表情）。重启 app 让她出现。"
+        )
+        # Offer to restart so the WebView reloads with the new model URL.
+        box = QMessageBox(self)
+        box.setWindowTitle("安装完成")
+        box.setText(f"已安装「{result.name}」。需要重启 app 才能看到她。")
+        restart_btn = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is restart_btn:
+            import os as _os
+            import sys as _sys
+
+            from PySide6.QtWidgets import QApplication
+
+            QApplication.quit()
+            # Best-effort relaunch with the same args.
+            _os.execv(_sys.executable, [_sys.executable, *_sys.argv])
 
     def _init_voice(self, cfg: dict) -> None:
         vcfg = cfg.get("voice") or {}

@@ -66,8 +66,17 @@ class Live2DConfig:
 
     @classmethod
     def from_app_config(cls, app_cfg: dict[str, Any]) -> Live2DConfig:
+        from . import preferences
+
         live2d_cfg = app_cfg.get("live2d") or {}
-        active = live2d_cfg.get("active_model", "March_7th")
+        # preferences.yaml override wins — that's where the first-run installer
+        # writes the user's choice after they pick a model. Falls back to
+        # config.yaml's active_model, then to a placeholder name.
+        active = (
+            preferences.get_live2d_active_model()
+            or live2d_cfg.get("active_model")
+            or "default"
+        )
         base = Path("live2d/models") / active
         sidecar = base / "imouto.yaml"
 

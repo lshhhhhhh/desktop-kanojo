@@ -24,6 +24,8 @@ proactively, and speaks back with a cloned voice.
 
 ## Quickstart
 
+Three steps. The app guides you through API key + Live2D model on first run.
+
 ### 1. Install
 
 Requires **Python 3.11+** on Windows / macOS / Linux. PySide6 needs a desktop session.
@@ -43,48 +45,43 @@ copy .env.example .env
 copy config.example.yaml config.yaml
 ```
 
-Edit `.env` and put at least one API key (e.g. `GEMINI_API_KEY` from
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey) — has a
-generous free tier).
-
-Edit `config.yaml` if you want to switch the default chat backend / model
-or tweak memory + proactive behavior. The example is heavily commented.
-
-### 3. Drop in a Live2D model
-
-Live2D models aren't bundled (they're large and rarely redistributable).
-Drop your own model folder under `live2d/models/`:
-
-```
-live2d/models/my_model/
-├── my_model.model3.json
-├── ...
-```
-
-Then run the importer to auto-generate the imouto.yaml sidecar (mouth param,
-expression mapping, etc.) and point config at it:
-
-```powershell
-python tools\import_live2d.py live2d\models\my_model
-# edit config.yaml: live2d.active_model: my_model
-```
-
-See [docs/live2d-models.md](docs/live2d-models.md) for the sidecar schema and
-how to hand-tune emotion mappings.
-
-### 4. Run
+### 3. Run
 
 ```powershell
 desktop-kanojo
 # or:  python -m app.main
 ```
 
-A CLI-only mode (no GUI, no voice) for headless testing:
+On first launch you'll see two prompts:
+
+- **Missing API key** → click "打开设置", paste your key in the model tab.
+  Gemini has a generous free tier — get one in 30 s at
+  [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+- **Missing Live2D model** → click "打开 Live2D 下载页", pick any sample
+  from [Live2D's official page](https://www.live2d.com/en/learn/sample/),
+  download the zip, then come back and click "选择已下载的 zip". The app
+  unpacks it, generates the imouto.yaml sidecar, and restarts so she
+  appears.
+
+After that, just `desktop-kanojo` to launch normally.
+
+CLI-only mode (no GUI, no voice) for headless testing:
 ```powershell
 desktop-kanojo-repl
 ```
 
 Commands inside the REPL: `/facts` `/recent` `/search <q>` `/reflect` `/clear`.
+
+### Live2D licensing
+
+Sample models on Live2D's site are free for personal use and for
+commercial use by individuals and small businesses (annual revenue
+< 10 million JPY / ~$70K USD) under the
+[Live2D Free Material License Agreement](https://www.live2d.com/eula/live2d-free-material-license-agreement_en.html).
+The app neither bundles nor auto-downloads any model — you download from
+Live2D's site yourself, and the app just unpacks the zip you provide.
+For commercial use beyond that revenue threshold, see
+[Live2D's commercial licensing](https://www.live2d.com/en/sdk/license/).
 
 ## Voice cloning (optional)
 

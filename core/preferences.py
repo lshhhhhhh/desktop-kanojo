@@ -64,3 +64,20 @@ def set_chat_backend(backend_name: str | None, path: Path = DEFAULT_PATH) -> Non
     else:
         prefs["chat_backend"] = backend_name
     save(prefs, path)
+
+
+def get_live2d_active_model(path: Path = DEFAULT_PATH) -> str | None:
+    """Returns the user-overridden active Live2D model folder name, or None.
+    Set by the first-run wizard when the user installs a model via zip."""
+    return load(path).get("live2d_active_model")
+
+
+def set_live2d_active_model(
+    model_name: str | None, path: Path = DEFAULT_PATH
+) -> None:
+    prefs = load(path)
+    if model_name is None:
+        prefs.pop("live2d_active_model", None)
+    else:
+        prefs["live2d_active_model"] = model_name
+    save(prefs, path)
