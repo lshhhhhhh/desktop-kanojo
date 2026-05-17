@@ -286,9 +286,18 @@ class SettingsDialog(QDialog):
         self.memory_stats_label = QLabel()
         layout.addWidget(self.memory_stats_label)
 
-        layout.addWidget(QLabel("已记住的事实："))
+        # Two stacked sections: extracted facts on top, recent episodes below.
+        # Facts answer "what does she remember about me", episodes answer
+        # "what did we just say"; users want both.
+        layout.addWidget(QLabel("提炼事实（按重要度）："))
         self.facts_list = QListWidget()
+        self.facts_list.setMinimumHeight(120)
         layout.addWidget(self.facts_list, 1)
+
+        layout.addWidget(QLabel("最近对话片段（按时间倒序）："))
+        self.episodes_list = QListWidget()
+        self.episodes_list.setMinimumHeight(160)
+        layout.addWidget(self.episodes_list, 2)
 
         btn_row = QHBoxLayout()
         refresh_btn = QPushButton("刷新")
@@ -311,6 +320,7 @@ class SettingsDialog(QDialog):
         if self.session is None:
             self.memory_stats_label.setText("无会话")
             self.facts_list.clear()
+            self.episodes_list.clear()
             return
         ep_count = self.session.memory.episodic.count()
         facts = self.session.memory.facts.all_active()
@@ -323,6 +333,32 @@ class SettingsDialog(QDialog):
                 f"{f.key}：{f.value}    (confidence={f.confidence:.2f})"
             )
             self.facts_list.addItem(item)
+
+        # Recent episodes (latest first). Show speaker prefix + truncated
+        # text + relative timestamp so users can quickly scan.
+        self.episodes_list.clear()
+        recent = self.session.memory.episodic.recent(limit=50)
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        for ep in recent:
+            try:
+                ts = datetime.fromisoformat(ep.ts)
+                ago_s = int((now - ts).total_seconds())
+                if ago_s < 60:
+                    when = f"{ago_s}s 前"
+                elif ago_s < 3600:
+                    when = f"{ago_s // 60}m 前"
+                elif ago_s < 86400:
+                    when = f"{ago_s // 3600}h 前"
+                else:
+                    when = f"{ago_s // 86400}d 前"
+            except Exception:
+                when = "?"
+            text = ep.text.replace("\n", " ")
+            if len(text) > 120:
+                text = text[:120] + "…"
+            self.episodes_list.addItem(f"[{when}] {ep.speaker}: {text}")
 
     def _clear_memory(self) -> None:
         reply = QMessageBox.warning(
@@ -1288,12 +1324,11 @@ class SettingsDialog(QDialog):
 
         def done(t: asyncio.Task) -> None:
             try:
-                reply = t.result()
-                # Empty reply is still a successful round-trip -- the auth +
-                # request format are fine, the model just didn't emit
-                # content (common with reasoning models on very short prompts).
-                tail = (reply or "(空回复 — 连通正常)")[:60]
-                self.model_status.setText(f"{name}: ✓ {tail}")
+                t.result()
+                # Don't surface the actual reply text -- whether the model
+                # said "hi" or stayed silent isn't useful here; the user
+                # just wants to know auth + request format are working.
+                self.model_status.setText(f"{name}: ✓ 连通正常")
             except Exception as e:
                 self.model_status.setText(f"{name}: ✗ {type(e).__name__}: {e}")
 

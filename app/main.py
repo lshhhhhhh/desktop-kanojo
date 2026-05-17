@@ -82,12 +82,26 @@ def _merge_new_keys_from_example(user_cfg: dict, example_cfg: dict) -> None:
 
     user_backends = user_brain.setdefault("backends", {})
     added_backends = []
-    for name, b in (example_brain.get("backends") or {}).items():
+    patched_backends = []
+    for name, ex_b in (example_brain.get("backends") or {}).items():
         if name not in user_backends:
-            user_backends[name] = b
+            user_backends[name] = ex_b
             added_backends.append(name)
+        else:
+            # Existing backend: fill in any new keys the example added since
+            # this user's config.yaml was last copied. Common case: a new
+            # flag like `uses_max_completion_tokens` showed up in a release
+            # and the user's older config lacks it. We never overwrite an
+            # existing key; only fill missing ones.
+            user_b = user_backends[name]
+            for k, v in ex_b.items():
+                if k not in user_b:
+                    user_b[k] = v
+                    patched_backends.append(f"{name}.{k}")
     if added_backends:
         logger.info("merged new backends from example: {}", added_backends)
+    if patched_backends:
+        logger.info("backfilled backend fields from example: {}", patched_backends)
 
     user_routing = user_brain.setdefault("routing", {})
     example_routing = example_brain.get("routing") or {}
