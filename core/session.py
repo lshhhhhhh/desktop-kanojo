@@ -133,7 +133,15 @@ class ChatSession:
 
     def set_persona(self, persona: Persona) -> None:
         self.persona_obj = persona
-        self.persona = persona.system_prompt
+        prompt = persona.system_prompt
+        # Append the user's preferred form of address (e.g. "哥哥", "主人",
+        # real name) as a final clause. Keeping it outside the saved
+        # system_prompt means users can rotate the address without editing
+        # the persona file.
+        addr = (persona.user_address or "").strip()
+        if addr:
+            prompt = prompt.rstrip() + f"\n\n用户希望你称呼他为「{addr}」。"
+        self.persona = prompt
         self.example_dialogs = list(persona.examples)
         self.persona_display_prefix = persona.display_prefix
 

@@ -139,8 +139,14 @@ class SettingsDialog(QDialog):
         self.name_input = QLineEdit()
         self.prefix_input = QLineEdit()
         self.prefix_input.setMaxLength(4)
+        self.user_address_input = QLineEdit()
+        self.user_address_input.setMaxLength(16)
+        self.user_address_input.setPlaceholderText(
+            "如「哥哥」「主人」或你的真名；留空 = 默认「你」"
+        )
         form.addRow("名字：", self.name_input)
         form.addRow("聊天前缀：", self.prefix_input)
+        form.addRow("她对我的称呼：", self.user_address_input)
         layout.addLayout(form)
 
         layout.addWidget(QLabel("系统提示词："))
@@ -195,6 +201,7 @@ class SettingsDialog(QDialog):
         self._original_name = p.name
         self.name_input.setText(p.name)
         self.prefix_input.setText(p.display_prefix)
+        self.user_address_input.setText(p.user_address)
         self.system_prompt_edit.setPlainText(p.system_prompt)
         self.examples_edit.setPlainText(_format_examples(p.examples))
 
@@ -203,6 +210,7 @@ class SettingsDialog(QDialog):
             name=self.name_input.text().strip() or "小妹",
             display_prefix=self.prefix_input.text().strip() or "妹",
             system_prompt=self.system_prompt_edit.toPlainText().strip(),
+            user_address=self.user_address_input.text().strip(),
             examples=_parse_examples(self.examples_edit.toPlainText()),
         )
 
@@ -222,6 +230,7 @@ class SettingsDialog(QDialog):
             display_prefix=p.display_prefix,
             system_prompt=new_prompt,
             examples=new_examples,
+            user_address=p.user_address,
         )
         return renamed, count
 

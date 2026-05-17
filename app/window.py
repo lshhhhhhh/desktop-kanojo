@@ -248,9 +248,9 @@ class TitleBar(QFrame):
         super().mouseReleaseEvent(event)
 
 
-COLOR_USER_PREFIX = QColor("#ffb6d9")
+COLOR_USER_PREFIX = QColor("#5cd66c")   # user = me, soft green
 COLOR_USER_TEXT = QColor("#ffffff")
-COLOR_ASST_PREFIX = QColor("#a0e0ff")
+COLOR_ASST_PREFIX = QColor("#ff7a8a")   # AI, soft red
 COLOR_ASST_TEXT = QColor("#f5f0f5")
 COLOR_SYS_NOTE = QColor("#888888")
 
@@ -349,7 +349,7 @@ class ChatPanel(QFrame):
             return
         cur.insertBlock()
 
-    def begin_user(self, text: str, display_prefix: str = "你") -> None:
+    def begin_user(self, text: str, display_prefix: str = "我") -> None:
         cur = self._cursor_at_end()
         self._maybe_new_block(cur)
         cur.insertText(f"{display_prefix} · ", _bold_format(COLOR_USER_PREFIX))

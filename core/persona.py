@@ -16,6 +16,12 @@ class Persona:
     display_prefix: str
     system_prompt: str
     examples: list[tuple[str, str]] = field(default_factory=list)
+    # What the AI should call the user. Empty = unspecified (the AI picks
+    # something neutral like "你"). Common values: "哥哥", "主人",
+    # the user's real name. Appended to the system prompt at session-bind
+    # time, not baked into system_prompt so users can swap addresses
+    # without re-editing the whole persona.
+    user_address: str = ""
 
     @classmethod
     def from_file(cls, path: str | Path) -> Persona:
@@ -31,6 +37,7 @@ class Persona:
                 for e in data.get("examples", [])
                 if isinstance(e, dict)
             ],
+            user_address=str(data.get("user_address", "")).strip(),
         )
 
     @classmethod
@@ -58,6 +65,7 @@ class Persona:
             "name": self.name,
             "display_prefix": self.display_prefix,
             "system_prompt": self.system_prompt,
+            "user_address": self.user_address,
             "examples": [
                 {"user": u, "assistant": a} for u, a in self.examples
             ],
