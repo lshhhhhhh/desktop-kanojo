@@ -149,6 +149,26 @@ class ChatSession:
         self.example_dialogs = examples
         self.persona_display_prefix = persona.display_prefix
 
+    async def greet(self, system_hint: str) -> AsyncIterator[ChatChunk]:
+        """Fire-and-forget LLM call that produces an unsolicited assistant
+        utterance — used for first-run greetings and idle spontaneous
+        remarks. Bypasses the memory pipeline entirely so the hint message
+        doesn't get stored as an episode (it isn't from the user).
+
+        The reply still gets stored downstream by the caller if desired
+        (CompanionWindow inserts proactive remarks into episodic memory
+        the same way it does for screen-aware proactive replies).
+        """
+        backend = self.router.select(self.intent)
+        messages = [
+            Message.text("system", self.persona),
+            Message.text("system", _EMOTION_PROTOCOL),
+            Message.text("user", system_hint),
+        ]
+        req = ChatRequest(messages=messages, stream=True, max_tokens=400)
+        async for chunk in backend.chat(req):
+            yield chunk
+
     async def chat(
         self,
         user_text: str,

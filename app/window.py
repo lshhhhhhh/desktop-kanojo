@@ -143,9 +143,16 @@ class TitleBar(QFrame):
 
         self.title = QLabel("imouto", self)
         layout.addWidget(self.title)
+        # Backend label (chat model currently default-routed). Separate from
+        # the status label below so TTS state + backend can both be visible.
+        self.backend_label = QLabel("", self)
+        self.backend_label.setStyleSheet(
+            "color: rgba(160, 220, 220, 200); padding-left: 10px;"
+        )
+        layout.addWidget(self.backend_label)
         self.status = QLabel("", self)
         self.status.setStyleSheet(
-            "color: rgba(255, 255, 255, 120); padding-left: 10px;"
+            "color: rgba(255, 255, 255, 120); padding-left: 6px;"
         )
         layout.addWidget(self.status)
         layout.addStretch(1)
@@ -204,7 +211,12 @@ class TitleBar(QFrame):
     def set_status(self, text: str, color: str = "rgba(255, 255, 255, 120)") -> None:
         """Update the small subtitle inside the title bar (server status etc.)."""
         self.status.setText(text)
-        self.status.setStyleSheet(f"color: {color}; padding-left: 10px;")
+        self.status.setStyleSheet(f"color: {color}; padding-left: 6px;")
+
+    def set_backend(self, text: str, color: str = "rgba(160, 220, 220, 200)") -> None:
+        """Update the dedicated backend-name label (chat model in use)."""
+        self.backend_label.setText(text)
+        self.backend_label.setStyleSheet(f"color: {color}; padding-left: 10px;")
 
     def _on_eye_toggled(self, blinded: bool) -> None:
         if blinded:
@@ -463,10 +475,21 @@ class CompanionWindow(QMainWindow):
             self._init_observer(cfg)
             self._init_voice(cfg)
             self._check_live2d_model(self.live2d_cfg)
+            self._refresh_backend_status_label()
             # First-run guidance: if the default chat backend has no API key,
             # chat will silently 401 on first message. Pop a one-shot dialog
             # right after the window paints and offer to open the model tab.
             QTimer.singleShot(800, self._check_required_api_keys)
+            # Spontaneous greeting once everything is set up. Fires on the
+            # first launch where API key + Live2D model are both present.
+            QTimer.singleShot(2500, self._maybe_first_greet)
+            # Idle spontaneous remarks every ~15 minutes (with 30% chance,
+            # respecting active-chat / cooldown rules in _maybe_spontaneous_remark).
+            self._last_user_at = 0.0
+            self._last_proactive_at = 0.0
+            self._spontaneous_timer = QTimer(self)
+            self._spontaneous_timer.timeout.connect(self._maybe_spontaneous_remark)
+            self._spontaneous_timer.start(15 * 60 * 1000)
         else:
             self.chat.show_system_note("no session bound — chat disabled")
             self.chat.set_input_enabled(False)
@@ -640,6 +663,109 @@ class CompanionWindow(QMainWindow):
         self.view.page().runJavaScript(
             "if(window.imouto) window.imouto.resetPosition();"
         )
+
+    def _refresh_backend_status_label(self) -> None:
+        """Title-bar suffix showing which chat backend is currently default
+        (so users can see at a glance which model is answering them).
+        Updated on init, after settings dialog closes, and after model
+        tab applies a switch."""
+        if self.session is None or self.session.router is None:
+            return
+        name = self.session.router.default
+        backend = self.session.router.backends.get(name)
+        if backend is None:
+            return
+        # Prefer short model name, fall back to backend name.
+        label = getattr(backend, "model", None) or name
+        self.title_bar.set_backend(f"· {label}")
+
+    def _maybe_first_greet(self) -> None:
+        """Once-per-installation hello after API key + Live2D model are
+        both set up. Marks done immediately so closing mid-greeting
+        doesn't queue another one on next launch."""
+        from core import preferences
+
+        if preferences.get_first_greet_done():
+            return
+        if self.session is None or self.session.router is None:
+            return
+        backend = self.session.router.select(self.session.intent)
+        if not getattr(backend, "api_key", ""):
+            return  # still needs setup
+        if not (self.live2d_cfg.model_dir / self.live2d_cfg.model_file).is_file():
+            return  # no model installed yet
+        preferences.set_first_greet_done(True)
+        hint = (
+            "（系统提示：用户刚装好你启动了，第一次正式见面。主动跟他打一个简短自然的招呼，"
+            "1-2 句话，符合你的人设。开头带 [心情:XX] 前缀。）"
+        )
+        asyncio.ensure_future(self._utter_proactive(hint))
+
+    def _maybe_spontaneous_remark(self) -> None:
+        """Periodic 'she just said something on her own' check — runs every
+        15 min, only fires sometimes, only when chat is idle, never
+        interrupts an ongoing reply or a recent user message."""
+        import random
+        import time as _time
+
+        if self._chat_busy or self.session is None:
+            return
+        now = _time.monotonic()
+        # Don't speak in the first minute after the user wrote something.
+        if (now - self._last_user_at) < 60:
+            return
+        # 10-min cooldown between her own utterances (covers proactive
+        # observer + first_greet + spontaneous combined).
+        if (now - self._last_proactive_at) < 600:
+            return
+        if random.random() > 0.3:
+            return
+        hint = (
+            "（系统提示：你独自在桌面待了一会儿，没人主动找你。说一句自言自语，"
+            "比如吐槽/感慨/无聊的碎碎念，1 句话即可。不要追问用户。"
+            "开头带 [心情:XX] 前缀。）"
+        )
+        asyncio.ensure_future(self._utter_proactive(hint))
+
+    async def _utter_proactive(self, hint: str) -> None:
+        """Stream a self-initiated reply into the chat panel + speaker. Used
+        by first_greet and spontaneous remark. Records the utterance into
+        episodic memory so she can later reference what she said."""
+        import time as _time
+
+        if self.session is None or self._chat_busy:
+            return
+        self._chat_busy = True
+        self._last_proactive_at = _time.monotonic()
+        self.chat.begin_assistant(self._display_prefix())
+        full = ""
+        try:
+            async for chunk in self.session.greet(hint):
+                full += chunk.delta
+            rest, emotion = self._strip_emotion_prefix(full)
+            self._trigger_emotion(emotion)
+            self.chat.stream_chunk(rest)
+            if self.speaker is not None and rest.strip():
+                from core.voice import SentenceBuffer
+
+                buf = SentenceBuffer()
+                for s in buf.feed(rest):
+                    self.speaker.enqueue(s)
+                tail = buf.flush()
+                if tail.strip():
+                    self.speaker.enqueue(tail)
+            try:
+                await self.session.memory.episodic.add(
+                    speaker="assistant",
+                    text=rest,
+                    session_id=self.session.session_id,
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning("proactive utterance failed: {}", e)
+        finally:
+            self._chat_busy = False
 
     def _reload_live2d_view(self) -> None:
         """Construct the WebView URL from current self.live2d_cfg and reload.
@@ -888,6 +1014,9 @@ class CompanionWindow(QMainWindow):
         dlg.persona_changed.connect(self._on_persona_changed)
         dlg.memory_cleared.connect(self._on_memory_cleared)
         dlg.exec()
+        # Settings may have changed the default chat backend; refresh the
+        # title-bar label so it stays accurate.
+        self._refresh_backend_status_label()
 
     def _on_persona_changed(self) -> None:
         self.chat.show_system_note("人设已更新（下条消息生效）")
@@ -1001,8 +1130,10 @@ class CompanionWindow(QMainWindow):
                 self.speaker.enqueue(leftover)
 
     async def _handle_chat(self, text: str) -> None:
+        import time as _time
         assert self.session is not None
         self._chat_busy = True
+        self._last_user_at = _time.monotonic()
         if self.observer is not None:
             self.observer.notify_user_spoke()
         self.chat.set_input_enabled(False)

@@ -83,6 +83,18 @@ def set_live2d_active_model(
     save(prefs, path)
 
 
+def get_first_greet_done(path: Path = DEFAULT_PATH) -> bool:
+    """Tracks whether she's already done her one-time hello after the
+    user finished initial setup. Once true, never re-greets."""
+    return bool(load(path).get("first_greet_done", False))
+
+
+def set_first_greet_done(done: bool, path: Path = DEFAULT_PATH) -> None:
+    prefs = load(path)
+    prefs["first_greet_done"] = bool(done)
+    save(prefs, path)
+
+
 def get_local_backend(path: Path = DEFAULT_PATH) -> dict[str, str]:
     """Returns the user's local-backend overrides (LM Studio / Ollama /
     llama.cpp server endpoint). Schema: {base_url, model, api_key}.

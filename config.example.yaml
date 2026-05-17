@@ -28,6 +28,22 @@ brain:
       vision: true
       supports_temperature: false        # gpt-5.x reasoning models only accept default temp=1
       uses_max_completion_tokens: true   # gpt-5.x rejects max_tokens; uses max_completion_tokens
+    openai-gpt55:
+      provider: openai_compat
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY
+      model: gpt-5.5
+      vision: true
+      supports_temperature: false
+      uses_max_completion_tokens: true
+    openai-gpt55-pro:
+      provider: openai_compat
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY
+      model: gpt-5.5-pro
+      vision: true
+      supports_temperature: false
+      uses_max_completion_tokens: true
     gemini-pro:
       provider: openai_compat
       base_url: https://generativelanguage.googleapis.com/v1beta/openai
