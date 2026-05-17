@@ -7,15 +7,29 @@ app:
     transparent: true
 
 brain:
-  # gpt-5.4-mini holds character cards perfectly (0/3 leaks in probe).
-  # Gemini 3.1 Pro fails 4/5 — keep it for reflection (cheap) and vision.
-  default: openai-gpt5
+  # Default = DeepSeek: accessible from mainland China, cheap (~¥1 / 1M tokens),
+  # decent at character cards. Get a key at https://platform.deepseek.com/api_keys.
+  # New users get free credit on signup. Other backends below are listed but
+  # require their own keys — set whichever you have via the settings dialog.
+  default: deepseek-chat
   backends:
+    deepseek-chat:
+      provider: openai_compat
+      base_url: https://api.deepseek.com/v1
+      api_key_env: DEEPSEEK_API_KEY
+      model: deepseek-chat
+      vision: false           # DeepSeek currently has no multimodal endpoint
+    deepseek-reasoner:
+      provider: openai_compat
+      base_url: https://api.deepseek.com/v1
+      api_key_env: DEEPSEEK_API_KEY
+      model: deepseek-reasoner    # slower, for hard reasoning
+      vision: false
     openai-gpt5:
       provider: openai_compat
       base_url: https://api.openai.com/v1
       api_key_env: OPENAI_API_KEY
-      model: gpt-5.4-mini   # cheap default; switch to gpt-5.5 / gpt-5.5-pro for harder tasks
+      model: gpt-5.4-mini
       vision: true
       supports_temperature: false   # gpt-5.x reasoning models only accept default temp=1
     gemini-pro:
@@ -24,8 +38,6 @@ brain:
       api_key_env: GEMINI_API_KEY
       model: gemini-3.1-pro-preview
       vision: true
-      # Note: Gemini's OpenAI-compat endpoint doesn't accept safety_settings.
-      # To tune safety, switch to native google-genai SDK (see roadmap).
     gemini-flash:
       provider: openai_compat
       base_url: https://generativelanguage.googleapis.com/v1beta/openai
@@ -39,13 +51,17 @@ brain:
       model: qwen/qwen3-vl-30b
       vision: true
   routing:
-    default: openai-gpt5     # persona-critical chat
-    deep_reasoning: openai-gpt5  # bump to gpt-5.5 / gpt-5.5-pro by editing the backend
-    reflection: gemini-flash # background fact extraction (free tier)
-    vision: gemini-pro       # screen analysis (Gemini's multimodal is strong)
+    default: deepseek-chat       # persona-critical chat
+    deep_reasoning: deepseek-reasoner
+    reflection: deepseek-chat    # background fact extraction
+    vision: gemini-pro           # screen analysis — only fires if you have GEMINI_API_KEY
     privacy_strict: local-qwen
 
 embedding:
+  # Optional. Without it, episodic memory falls back to recent-by-time
+  # (still works — just no semantic search). DeepSeek doesn't expose an
+  # /embeddings endpoint, so we default to Gemini's free tier here and
+  # gracefully degrade if no GEMINI_API_KEY is set.
   provider: openai_compat
   base_url: https://generativelanguage.googleapis.com/v1beta/openai
   api_key_env: GEMINI_API_KEY

@@ -78,6 +78,20 @@ class EpisodicStore:
         recency_weight: float = 0.3,
         importance_weight: float = 0.2,
     ) -> list[tuple[Episode, float]]:
+        # No embedding key configured → return recent episodes by time so the
+        # rest of the pipeline (retrieval composer, working memory) keeps
+        # working. Score is set to recency only.
+        if getattr(self.embedder, "is_disabled", False):
+            recent = self.recent(top_k)
+            now = datetime.now(UTC)
+            out: list[tuple[Episode, float]] = []
+            for ep in recent:
+                ep_ts = datetime.fromisoformat(ep.ts)
+                age_days = (now - ep_ts).total_seconds() / 86400.0
+                recency = math.exp(-age_days / time_decay_days)
+                out.append((ep, recency))
+            return out
+
         q_vec = await self.embedder.embed_one(query)
         knn_k = max(top_k * 3, 10)
         rows = self.conn.execute(

@@ -34,12 +34,13 @@ class Embedder:
         key = api_key
         if api_key_env:
             key = os.environ.get(api_key_env) or key
-        if not key:
-            raise ValueError(
-                f"Embedding API key missing. Set env var '{api_key_env}' "
-                f"or embedding.api_key in config."
-            )
-        self.api_key = key
+        # When no embedding key is available, run in disabled mode: embed()
+        # returns zero vectors and EpisodicStore.search falls back to a
+        # time-ordered recent list. The rest of the memory system (working
+        # window, fact extraction) still works.
+        self.api_key = key or ""
+        self.is_disabled = not self.api_key
+        self._warned_disabled = False
 
     @classmethod
     def from_config(cls, cfg: dict[str, Any]) -> Embedder:
@@ -55,6 +56,15 @@ class Embedder:
     async def embed(self, texts: list[str]) -> list[np.ndarray]:
         if not texts:
             return []
+        if self.is_disabled:
+            if not self._warned_disabled:
+                logger.warning(
+                    "embedder disabled (no API key) — returning zero vectors; "
+                    "episodic vector search is unavailable, only recent-by-time "
+                    "fallback will work"
+                )
+                self._warned_disabled = True
+            return [np.zeros(self.dim, dtype=np.float32) for _ in texts]
         # Sync httpx in an executor thread; under qasync, async httpx.AsyncClient
         # cleanup hits anyio cancel-scope errors when run inside async generators.
         loop = asyncio.get_running_loop()

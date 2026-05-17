@@ -638,6 +638,27 @@ class CompanionWindow(QMainWindow):
         js = f"if(window.imouto) window.imouto.setMouthOpen({value:.3f});"
         self.view.page().runJavaScript(js)
 
+    # Where each provider's API key console lives. Used to give users a
+    # one-click route to register when the wizard fires for a missing key.
+    _KEY_SOURCES: dict[str, tuple[str, str]] = {
+        "DEEPSEEK_API_KEY": (
+            "https://platform.deepseek.com/api_keys",
+            "DeepSeek 在中国可访问，注册送免费额度",
+        ),
+        "OPENAI_API_KEY": (
+            "https://platform.openai.com/api-keys",
+            "OpenAI（需国际网络）",
+        ),
+        "GEMINI_API_KEY": (
+            "https://aistudio.google.com/apikey",
+            "Google AI Studio，免费额度充足（需国际网络）",
+        ),
+        "ANTHROPIC_API_KEY": (
+            "https://console.anthropic.com/",
+            "Anthropic Claude（需国际网络）",
+        ),
+    }
+
     def _check_required_api_keys(self) -> None:
         """If the active chat backend has no API key configured, surface a
         dialog and offer to open the model tab. Runs once at startup; can
@@ -651,19 +672,43 @@ class CompanionWindow(QMainWindow):
         if has_key:
             return
 
+        from PySide6.QtCore import QUrl as _QUrl
+        from PySide6.QtGui import QDesktopServices
         from PySide6.QtWidgets import QMessageBox
+
+        # Look up which env var this backend wants, and the matching
+        # registration URL + blurb. Fall back to "open settings only" if
+        # we don't recognize the env var.
+        api_key_env = getattr(backend, "api_key_env", None)
+        url_info = self._KEY_SOURCES.get(api_key_env or "")
 
         box = QMessageBox(self)
         box.setWindowTitle("需要 API 密钥")
-        box.setText(
+        msg = (
             f"当前默认后端 <b>{backend.name}</b>（{backend.model}）没有 API 密钥，"
             "聊天会请求失败。"
         )
+        if url_info:
+            site, blurb = url_info
+            msg += f"<br><br>获取 <b>{api_key_env}</b>：{blurb}<br>"
+        box.setText(msg)
         box.setInformativeText("现在打开设置去填写吗？")
+
+        get_btn = None
+        if url_info:
+            get_btn = box.addButton("去注册页拿 key", QMessageBox.ButtonRole.ActionRole)
         open_btn = box.addButton("打开设置", QMessageBox.ButtonRole.AcceptRole)
         box.addButton("以后再说", QMessageBox.ButtonRole.RejectRole)
         box.exec()
-        if box.clickedButton() is open_btn:
+
+        clicked = box.clickedButton()
+        if get_btn is not None and clicked is get_btn:
+            QDesktopServices.openUrl(_QUrl(url_info[0]))
+            # Loop back so the user can come straight into settings after
+            # they've grabbed the key from the browser.
+            QTimer.singleShot(500, self._check_required_api_keys)
+            return
+        if clicked is open_btn:
             self._on_settings()
 
     def _resolve_saved_audio_device(self):

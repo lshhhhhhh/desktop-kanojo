@@ -27,11 +27,9 @@
 
 ### 快速开始
 
-三步。首次启动会引导你填 API key 和装 Live2D 模型。
+两步——零配置，国内可用。
 
-#### 1. 安装
-
-需要 **Python 3.11+**，Windows / macOS / Linux 都行（PySide6 需要桌面会话）。
+#### 1. 安装并启动
 
 ```powershell
 git clone https://github.com/lshhhhhhh/desktop-kanojo.git
@@ -39,31 +37,25 @@ cd desktop-kanojo
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[voice]"
+python -m app.main
 ```
 
-#### 2. 配置
+需要 **Python 3.11+**。不需要 `copy .env`、不需要 `copy config.yaml`——app 找不到这些文件时自动用内置默认配置。
 
-```powershell
-copy .env.example .env
-copy config.example.yaml config.yaml
-```
+#### 2. 跟着首启动向导走
 
-#### 3. 启动
+第一次启动弹两个对话框：
 
-```powershell
-desktop-kanojo
-# 或: python -m app.main
-```
-
-首次启动会弹两个对话框：
-
-- **缺 API key** → 点「打开设置」→ 在「模型」tab 粘贴 key。
-  Gemini 免费层很宽松，30 秒搞定：[aistudio.google.com/apikey](https://aistudio.google.com/apikey)。
+- **缺 API key** → 默认后端是 [DeepSeek](https://platform.deepseek.com/api_keys)（国内可访问、注册送免费额度）。点「去注册页拿 key」→ 浏览器打开 DeepSeek 控制台 → 注册后复制 key 回到 app 的「设置 → 模型」tab 粘贴。**整套流程 2 分钟**。
 - **缺 Live2D 模型** → 点「打开 Live2D 下载页」→ 在
-  [Live2D 官方 sample 页](https://www.live2d.com/en/learn/sample/) 随便挑一个免费 sample
-  下载 zip，回到 app 点「选择已下载的 zip」。app 会自动解压、生成 imouto.yaml、提示重启。
+  [Live2D 官方 sample 页](https://www.live2d.com/en/learn/sample/) 挑一个 sample 下载 zip（推荐带表情的 **Mark** 或 **Haru**），回到 app 点「选择已下载的 zip」→ app 自动解压、生成配置、提示重启。
+- 装完模型后到「设置 → 形象」tab 把情绪绑到模型实际的表情/动作上。
 
-之后再启动就直接 `desktop-kanojo` 即可。
+之后再启动就直接 `python -m app.main`。
+
+**声音**：默认 [edge-tts](https://github.com/rany2/edge-tts)（微软 Azure 的免费 TTS，无需 key、即开即用）。想用克隆声音见下方"声音克隆"。
+
+**记忆 / 截屏感知**：聊天记忆默认就跑，会持久化到 `data/memory.sqlite`。截屏主动模式默认开着，10 分钟评估一次，DeepSeek 不支持图像所以提示她只看 window title——想要真·看屏幕评论，配 OpenAI 或 Gemini key（设置 → 模型 tab）。
 
 无 GUI 命令行模式（适合调试记忆 / 人设）：
 ```powershell
@@ -129,11 +121,9 @@ proactively, and speaks back with a cloned voice.
 
 ### Quickstart
 
-Three steps. The app guides you through API key + Live2D model on first run.
+Two steps — zero config required.
 
-#### 1. Install
-
-Requires **Python 3.11+** on Windows / macOS / Linux. PySide6 needs a desktop session.
+#### 1. Install and launch
 
 ```powershell
 git clone https://github.com/lshhhhhhh/desktop-kanojo.git
@@ -141,34 +131,39 @@ cd desktop-kanojo
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[voice]"
+python -m app.main
 ```
 
-#### 2. Configure
+Requires **Python 3.11+**. No need to copy `.env` or `config.yaml` — when the
+app doesn't find them it falls back to the built-in defaults.
 
-```powershell
-copy .env.example .env
-copy config.example.yaml config.yaml
-```
+#### 2. Follow the first-run wizard
 
-#### 3. Run
+Two prompts on first launch:
 
-```powershell
-desktop-kanojo
-# or:  python -m app.main
-```
+- **Missing API key** → the default backend is **DeepSeek**
+  ([platform.deepseek.com](https://platform.deepseek.com/api_keys) — cheap,
+  free signup credit, accessible from anywhere). Click "去注册页拿 key" to
+  open the registration page in your browser, then paste the key into
+  the model tab. International users can also use OpenAI or Gemini — see
+  the model tab for all options.
+- **Missing Live2D model** → click "打开 Live2D 下载页", pick a sample
+  from [Live2D's official page](https://www.live2d.com/en/learn/sample/)
+  (recommend **Mark** or **Haru** — they have expression data), download
+  the zip, then come back and click "选择已下载的 zip". The app unpacks
+  it, generates the imouto.yaml sidecar, and offers to restart.
+- After install, go to **Settings → 形象** tab to bind the emotion
+  vocabulary to your model's actual expressions / motions.
 
-On first launch you'll see two prompts:
+After that, just `python -m app.main` to launch normally.
 
-- **Missing API key** → click "打开设置", paste your key in the model tab.
-  Gemini has a generous free tier — get one in 30 s at
-  [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-- **Missing Live2D model** → click "打开 Live2D 下载页", pick any sample
-  from [Live2D's official page](https://www.live2d.com/en/learn/sample/),
-  download the zip, then come back and click "选择已下载的 zip". The app
-  unpacks it, generates the imouto.yaml sidecar, and restarts so she
-  appears.
+**Voice** defaults to [edge-tts](https://github.com/rany2/edge-tts)
+(Microsoft Azure free TTS, no key needed). For cloned voices see below.
 
-After that, just `desktop-kanojo` to launch normally.
+**Vision / proactive screen-awareness**: DeepSeek has no multimodal
+endpoint, so by default the proactive observer only sees the foreground
+window title (not the pixels). Set `OPENAI_API_KEY` or `GEMINI_API_KEY`
+in the model tab to enable real screen analysis.
 
 CLI-only mode (no GUI, no voice) for headless testing:
 ```powershell

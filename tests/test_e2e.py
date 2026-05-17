@@ -27,7 +27,15 @@ pytestmark = pytest.mark.skipif(
 
 def _load_cfg() -> dict:
     with open("config.example.yaml", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    # config.example defaults to deepseek-chat (zero-config path for China).
+    # The e2e suite is gated on GEMINI_API_KEY (embedding + cheap chat), so
+    # override the chat default to keep these tests self-consistent with
+    # what's actually available.
+    cfg["brain"]["default"] = "gemini-flash"
+    cfg["brain"]["routing"]["default"] = "gemini-flash"
+    cfg["brain"]["routing"]["reflection"] = "gemini-flash"
+    return cfg
 
 
 @pytest.mark.asyncio
