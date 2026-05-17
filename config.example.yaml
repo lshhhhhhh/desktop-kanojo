@@ -27,7 +27,7 @@ brain:
       vision: false
     zhipu-glm-4v-flash:
       # 智谱 GLM-4V-Flash: free, accessible from mainland China, multimodal.
-      # Get a key at https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys
+      # Get a key at https://www.bigmodel.cn/apikey/platform
       provider: openai_compat
       base_url: https://open.bigmodel.cn/api/paas/v4
       api_key_env: ZHIPU_API_KEY

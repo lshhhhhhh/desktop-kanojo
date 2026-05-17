@@ -55,7 +55,7 @@ python -m app.main
 
 **声音**：默认 [edge-tts](https://github.com/rany2/edge-tts)（微软 Azure 的免费 TTS，无需 key、即开即用）。想用克隆声音见下方"声音克隆"。
 
-**记忆 / 截屏感知**：聊天记忆默认就跑，会持久化到 `data/memory.sqlite`。截屏主动模式默认开着，10 分钟评估一次——默认 vision 走 **智谱 GLM-4V-Flash**（[bigmodel.cn](https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys) 免费、国内可访问），添加 `ZHIPU_API_KEY` 后她就能真·看屏幕评论了。
+**记忆 / 截屏感知**：聊天记忆默认就跑，会持久化到 `data/memory.sqlite`。截屏主动模式默认开着，10 分钟评估一次——默认 vision 走 **智谱 GLM-4V-Flash**（[bigmodel.cn](https://www.bigmodel.cn/apikey/platform) 免费、国内可访问），添加 `ZHIPU_API_KEY` 后她就能真·看屏幕评论了。
 
 无 GUI 命令行模式（适合调试记忆 / 人设）：
 ```powershell
@@ -162,7 +162,7 @@ After that, just `python -m app.main` to launch normally.
 
 **Vision / proactive screen-awareness**: DeepSeek has no multimodal
 endpoint. The default vision backend is **Zhipu GLM-4V-Flash**
-([bigmodel.cn](https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys),
+([bigmodel.cn](https://www.bigmodel.cn/apikey/platform),
 free + China-accessible). Add `ZHIPU_API_KEY` in the model tab for real
 screen analysis. International users can also point the `vision` route
 at OpenAI / Gemini in `config.yaml`.

@@ -26,7 +26,7 @@ KEY_SOURCES: dict[str, tuple[str, str]] = {
         "DeepSeek 在中国可访问，注册送免费额度",
     ),
     "ZHIPU_API_KEY": (
-        "https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys",
+        "https://www.bigmodel.cn/apikey/platform",
         "智谱 GLM-4V-Flash 免费多模态，中国可访问",
     ),
     "DASHSCOPE_API_KEY": (
