@@ -1,6 +1,7 @@
 # desktop-kanojo
 
 [![CI](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml/badge.svg)](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/lshhhhhhh/desktop-kanojo?include_prereleases&sort=semver)](https://github.com/lshhhhhhh/desktop-kanojo/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 [English version below](#english) · [中文版本](#中文)
@@ -25,7 +26,13 @@
 - **主动模式** —— 定时偷瞄屏幕评估"现在值不值得开口"，默认偏静默。
 - **无边框透明窗** —— 顶部拖拽栏、设置弹窗、按设备的音频输出路由、隐私拦截红字、闭眼按钮。
 
-### 快速开始
+### 下载预编译版（推荐）
+
+去 [Releases](https://github.com/lshhhhhhh/desktop-kanojo/releases/latest) 下载最新 zip → 解压到你可写的目录（桌面 / D 盘根目录 / 文档，**不要解压到 `C:\Program Files\`**）→ 双击 `desktop-kanojo.exe`。**无需装 Python**。
+
+首次运行 Windows Defender 会弹"未识别的发布者"——hobby 项目没买代码签名证书。点 **更多信息** → **仍要运行** 即可。
+
+### 从源码运行（开发者）
 
 两步——零配置，国内可用。
 
@@ -119,7 +126,13 @@ proactively, and speaks back with a cloned voice.
 - **Proactive mode** — periodic screen-aware checks. She decides whether to speak up, biased toward silence unless something's actually worth saying.
 - **Frameless transparent window** — drag-handle title bar, settings dialog, per-device audio output routing, privacy blocklist with visible red indicator, manual "close her eyes" toggle.
 
-### Quickstart
+### Prebuilt download (recommended)
+
+Grab the latest zip from [Releases](https://github.com/lshhhhhhh/desktop-kanojo/releases/latest), unpack into a user-writable directory (Desktop / D:\ root / Documents — **not** `C:\Program Files\`), and double-click `desktop-kanojo.exe`. **No Python install needed.**
+
+On first run Windows Defender will warn about an "unrecognized publisher" — this is a hobby project without a code-signing cert. Click **More info** → **Run anyway**.
+
+### From source (developers)
 
 Two steps — zero config required.
 
