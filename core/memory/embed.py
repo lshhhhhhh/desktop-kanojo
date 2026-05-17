@@ -31,16 +31,25 @@ class Embedder:
         self.dim = dim
         self._timeout_s = timeout_s
         self.normalize = normalize
-        key = api_key
-        if api_key_env:
-            key = os.environ.get(api_key_env) or key
-        # When no embedding key is available, run in disabled mode: embed()
-        # returns zero vectors and EpisodicStore.search falls back to a
-        # time-ordered recent list. The rest of the memory system (working
-        # window, fact extraction) still works.
-        self.api_key = key or ""
-        self.is_disabled = not self.api_key
+        # Same live-resolution trick as OpenAICompatBackend: api_key is a
+        # property that consults the env var on every read, so newly-saved
+        # keys in the model tab take effect for the next embed() call.
+        self.api_key_env = api_key_env
+        self._literal_api_key = api_key or ""
         self._warned_disabled = False
+
+    @property
+    def api_key(self) -> str:
+        if self.api_key_env:
+            from_env = os.environ.get(self.api_key_env)
+            if from_env:
+                return from_env
+        return self._literal_api_key
+
+    @property
+    def is_disabled(self) -> bool:
+        """No key → disabled. Computed live so saving a key flips it on."""
+        return not self.api_key
 
     @classmethod
     def from_config(cls, cfg: dict[str, Any]) -> Embedder:

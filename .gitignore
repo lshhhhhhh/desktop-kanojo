@@ -6,6 +6,9 @@ __pycache__/
 venv/
 env/
 .env
+# Backups left behind by tools/test_wizard.py while in pristine mode.
+*.wizard_hidden
+_models_test_wizard_backup/
 *.egg-info/
 build/
 dist/

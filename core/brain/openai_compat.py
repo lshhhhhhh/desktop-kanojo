@@ -45,10 +45,23 @@ class OpenAICompatBackend(LLMBackend):
         self._extra_body = extra_body or {}
         self._supports_temperature = supports_temperature
 
-        key = api_key
-        if api_key_env:
-            key = os.environ.get(api_key_env) or key
-        self.api_key = key or ""
+        # Config-supplied literal key (e.g. local-qwen uses 'lm-studio').
+        # The env var name (api_key_env) is consulted on every request via
+        # the api_key property, so a user pasting a new key in the model
+        # tab takes effect for the next call without needing to restart
+        # the app.
+        self.api_key_env = api_key_env
+        self._literal_api_key = api_key or ""
+
+    @property
+    def api_key(self) -> str:
+        """Resolved on each access: env var (live) wins, falls back to the
+        literal value from config."""
+        if self.api_key_env:
+            from_env = os.environ.get(self.api_key_env)
+            if from_env:
+                return from_env
+        return self._literal_api_key
 
     def supports_vision(self) -> bool:
         return self._vision
