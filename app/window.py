@@ -551,14 +551,18 @@ class CompanionWindow(QMainWindow):
         box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
         box.exec()
         if box.clickedButton() is restart_btn:
-            import os as _os
+            import subprocess
             import sys as _sys
 
             from PySide6.QtWidgets import QApplication
 
+            # Spawn a fresh interpreter with the canonical `-m app.main` entry
+            # point — sys.argv[0] under `python -m` is a file path, so
+            # os.execv'ing the same argv would lose the package-relative
+            # import context and fail with ModuleNotFoundError: No module
+            # named 'app'. Popen + quit() keeps it simple.
+            subprocess.Popen([_sys.executable, "-m", "app.main"])
             QApplication.quit()
-            # Best-effort relaunch with the same args.
-            _os.execv(_sys.executable, [_sys.executable, *_sys.argv])
 
     def _init_voice(self, cfg: dict) -> None:
         vcfg = cfg.get("voice") or {}
