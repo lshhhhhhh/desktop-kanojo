@@ -5,6 +5,8 @@ avatar that you can chat with via LLMs (cloud or local), remembers what you
 told her across sessions, optionally watches your screen to talk
 proactively, and speaks back with a cloned voice.
 
+![desktop-companion screenshot — Live2D avatar overlaid on a CS2 game, proactively commenting on what's on screen](screenshot/1.jpg)
+
 > Originally built around an "imouto" (younger-sister) persona, but the
 > persona is fully editable — it's just a YAML file.
 
