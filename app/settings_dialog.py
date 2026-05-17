@@ -98,12 +98,14 @@ class SettingsDialog(QDialog):
         self.personas_dir = Path(cfg.get("persona", {}).get("path", "./personas"))
 
         tabs = QTabWidget(self)
+        self._tabs = tabs
         tabs.addTab(self._build_model_tab(), "模型")
         tabs.addTab(self._build_persona_tab(), "人设")
         tabs.addTab(self._build_proactive_tab(), "主动")
         tabs.addTab(self._build_memory_tab(), "记忆")
         tabs.addTab(self._build_screen_tab(), "屏幕")
         tabs.addTab(self._build_voice_tab(), "语音")
+        tabs.addTab(self._build_form_tab(), "形象")
 
         layout = QVBoxLayout(self)
         layout.addWidget(tabs)
@@ -608,6 +610,160 @@ class SettingsDialog(QDialog):
         if obs is None or not hasattr(self, "proactive_status_label"):
             return
         self.proactive_status_label.setText(f"状态：{obs.status_text()}")
+
+    # ---------------------------------------------------------------- form
+
+    def _build_form_tab(self) -> QWidget:
+        """Bind each standard emotion to one of the model's actual
+        expressions or motions. Replaces the heuristic guess from
+        import_live2d with explicit user choice, saved back to imouto.yaml."""
+        from typing import Any
+
+        from core.live2d_binding import (
+            STANDARD_EMOTIONS,
+            ModelBindings,
+            load_bindings,
+        )
+
+        w = QWidget()
+        layout = QVBoxLayout(w)
+
+        parent = self.parent()
+        model_dir = None
+        if parent is not None and hasattr(parent, "live2d_cfg"):
+            model_dir = parent.live2d_cfg.model_dir
+
+        if model_dir is None or not model_dir.is_dir():
+            layout.addWidget(QLabel("没有已安装的 Live2D 模型。"))
+            layout.addStretch(1)
+            return w
+
+        bindings: ModelBindings = load_bindings(model_dir)
+        self._form_bindings = bindings
+        layout.addWidget(QLabel(f"模型：{model_dir.name}"))
+        layout.addWidget(QLabel(
+            f"可用：{len(bindings.expressions)} 个表情 · "
+            f"{len(bindings.motions)} 个动作"
+        ))
+
+        # Option list shared by every dropdown. Each entry's userData is
+        # either:
+        #   None                — unbound
+        #   ("expr", name: str) — bind to expression
+        #   ("motion", group: str, index: int) — bind to motion
+        options: list[tuple[str, Any]] = [("（无）", None)]
+        for expr in bindings.expressions:
+            options.append((f"[表情] {expr}", ("expr", expr)))
+        for m in bindings.motions:
+            options.append((m.label(), ("motion", m.group, m.index)))
+
+        form = QFormLayout()
+        self._form_combos: dict[str, QComboBox] = {}
+        for emo in STANDARD_EMOTIONS:
+            row = QHBoxLayout()
+            combo = QComboBox()
+            for label, data in options:
+                combo.addItem(label, data)
+            # Preselect the current binding (expression wins over motion).
+            cur_expr = bindings.emotion_to_expression.get(emo)
+            cur_motion = bindings.emotion_to_motion.get(emo)
+            preselect: Any = None
+            if cur_expr is not None:
+                preselect = ("expr", cur_expr)
+            elif cur_motion is not None:
+                preselect = ("motion", cur_motion.group, cur_motion.index)
+            if preselect is not None:
+                for i in range(combo.count()):
+                    if combo.itemData(i) == preselect:
+                        combo.setCurrentIndex(i)
+                        break
+            self._form_combos[emo] = combo
+            row.addWidget(combo, 1)
+
+            preview_btn = QPushButton("试")
+            preview_btn.setFixedWidth(40)
+            preview_btn.clicked.connect(
+                lambda _=False, e=emo: self._form_preview(e)
+            )
+            row.addWidget(preview_btn)
+
+            wrap = QWidget()
+            wrap.setLayout(row)
+            form.addRow(emo + "：", wrap)
+
+        layout.addLayout(form)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        save_btn = QPushButton("保存")
+        save_btn.clicked.connect(self._form_save)
+        btn_row.addWidget(save_btn)
+        layout.addLayout(btn_row)
+
+        self._form_status = QLabel("")
+        self._form_status.setStyleSheet("color: #aaa;")
+        layout.addWidget(self._form_status)
+
+        layout.addStretch(1)
+        return w
+
+    def _form_preview(self, emotion: str) -> None:
+        """Fire the currently-selected expression/motion live in the WebView
+        so the user can confirm the binding before saving."""
+        import json
+
+        combo = self._form_combos.get(emotion)
+        if combo is None:
+            return
+        data = combo.currentData()
+        parent = self.parent()
+        if parent is None or not hasattr(parent, "view"):
+            return
+        if data is None:
+            js = "if(window.imouto) window.imouto.clearExpression();"
+        elif data[0] == "expr":
+            js = (
+                "if(window.imouto) window.imouto.setExpression("
+                + json.dumps(data[1], ensure_ascii=False)
+                + ");"
+            )
+        elif data[0] == "motion":
+            grp = json.dumps(data[1], ensure_ascii=False)
+            js = f"if(window.imouto) window.imouto.playMotion({grp}, {int(data[2])});"
+        else:
+            return
+        parent.view.page().runJavaScript(js)
+        self._form_status.setText(f"试播：{emotion} → {combo.currentText()}")
+
+    def _form_save(self) -> None:
+        from core.live2d_binding import MotionRef, save_bindings
+
+        b = self._form_bindings
+        b.emotion_to_expression = {}
+        b.emotion_to_motion = {}
+        for emo, combo in self._form_combos.items():
+            data = combo.currentData()
+            if data is None:
+                continue
+            if data[0] == "expr":
+                b.emotion_to_expression[emo] = data[1]
+            elif data[0] == "motion":
+                b.emotion_to_motion[emo] = MotionRef(group=data[1], index=int(data[2]))
+        try:
+            save_bindings(b)
+        except Exception as e:
+            QMessageBox.warning(self, "保存失败", str(e))
+            return
+
+        # Live-update the running Live2DConfig so the next emotion tag uses
+        # the new binding without requiring a restart.
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "live2d_cfg"):
+            parent.live2d_cfg.emotion_mapping = dict(b.emotion_to_expression)
+            parent.live2d_cfg.motion_mapping = {
+                emo: m.as_dict() for emo, m in b.emotion_to_motion.items()
+            }
+        self._form_status.setText("已保存（下条消息生效）")
 
     # ---------------------------------------------------------------- model
 
