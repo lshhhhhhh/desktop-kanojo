@@ -19,6 +19,7 @@ dependencies = [
     "numpy>=1.26",
     "sqlite-vec>=0.1.6",
     "mss>=9.0",
+    "miniaudio>=1.59",
 ]
 
 [project.optional-dependencies]
