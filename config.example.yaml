@@ -26,7 +26,8 @@ brain:
       api_key_env: OPENAI_API_KEY
       model: gpt-5.4-mini
       vision: true
-      supports_temperature: false   # gpt-5.x reasoning models only accept default temp=1
+      supports_temperature: false        # gpt-5.x reasoning models only accept default temp=1
+      uses_max_completion_tokens: true   # gpt-5.x rejects max_tokens; uses max_completion_tokens
     gemini-pro:
       provider: openai_compat
       base_url: https://generativelanguage.googleapis.com/v1beta/openai

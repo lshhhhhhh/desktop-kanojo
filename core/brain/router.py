@@ -40,6 +40,9 @@ class Router:
                     vision=b.get("vision", True),
                     extra_body=b.get("extra_body"),
                     supports_temperature=b.get("supports_temperature", True),
+                    uses_max_completion_tokens=b.get(
+                        "uses_max_completion_tokens", False
+                    ),
                 )
             else:
                 raise ValueError(f"Unknown provider: {provider}")

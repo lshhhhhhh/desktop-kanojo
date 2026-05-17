@@ -1269,17 +1269,19 @@ class SettingsDialog(QDialog):
             return
 
         async def run() -> str:
+            # Reasoning models (gpt-5.x, gemini-3.1-pro) eat their first
+            # tokens on hidden reasoning, so a tight budget like 8 leaves
+            # no room for visible content. 256 is enough for "hi"-class
+            # replies on any model.
             req = ChatRequest(
                 messages=[Message(role="user", content=[ContentPart(type="text", text="hi")])],
                 stream=False,
-                max_tokens=8,
+                max_tokens=256,
             )
-            first = ""
+            reply = ""
             async for chunk in backend.chat(req):
-                first += chunk.delta
-                if first:
-                    break
-            return first
+                reply += chunk.delta
+            return reply
 
         self.model_status.setText(f"测试 {name} ...")
         task = asyncio.ensure_future(run())
@@ -1287,9 +1289,11 @@ class SettingsDialog(QDialog):
         def done(t: asyncio.Task) -> None:
             try:
                 reply = t.result()
-                self.model_status.setText(
-                    f"{name}: ✓ 回复：{(reply or '(空)')[:60]}"
-                )
+                # Empty reply is still a successful round-trip -- the auth +
+                # request format are fine, the model just didn't emit
+                # content (common with reasoning models on very short prompts).
+                tail = (reply or "(空回复 — 连通正常)")[:60]
+                self.model_status.setText(f"{name}: ✓ {tail}")
             except Exception as e:
                 self.model_status.setText(f"{name}: ✗ {type(e).__name__}: {e}")
 

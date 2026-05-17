@@ -36,6 +36,7 @@ class OpenAICompatBackend(LLMBackend):
         timeout_s: float = 300.0,
         extra_body: dict | None = None,
         supports_temperature: bool = True,
+        uses_max_completion_tokens: bool = False,
     ) -> None:
         self.name = name
         self.base_url = base_url.rstrip("/")
@@ -44,6 +45,11 @@ class OpenAICompatBackend(LLMBackend):
         self._timeout_s = timeout_s
         self._extra_body = extra_body or {}
         self._supports_temperature = supports_temperature
+        # OpenAI reasoning models (gpt-5.x, o1, o3, ...) reject the legacy
+        # `max_tokens` parameter and require `max_completion_tokens` instead.
+        # Other OpenAI-compatible providers (DeepSeek, Gemini, Zhipu) still
+        # use `max_tokens`.
+        self._uses_max_completion_tokens = uses_max_completion_tokens
 
         # Config-supplied literal key (e.g. local-qwen uses 'lm-studio').
         # The env var name (api_key_env) is consulted on every request via
@@ -91,7 +97,12 @@ class OpenAICompatBackend(LLMBackend):
         if self._supports_temperature:
             payload["temperature"] = req.temperature
         if req.max_tokens is not None:
-            payload["max_tokens"] = req.max_tokens
+            key = (
+                "max_completion_tokens"
+                if self._uses_max_completion_tokens
+                else "max_tokens"
+            )
+            payload[key] = req.max_tokens
         if self._extra_body:
             payload.update(self._extra_body)
         return payload
@@ -163,9 +174,18 @@ class OpenAICompatBackend(LLMBackend):
                     resp.raise_for_status()
                     data = resp.json()
                     choice = data["choices"][0]
+                    # Reasoning models (Gemini-3.1-pro, gpt-5.x) sometimes
+                    # return a message without a "content" key when the
+                    # token budget was entirely consumed by hidden
+                    # reasoning. Use .get to avoid KeyError; an empty
+                    # response is still a useful signal (the round-trip
+                    # itself succeeded, which is what /test connectivity
+                    # cares about).
+                    message = choice.get("message") or {}
+                    content = message.get("content") or ""
                     put(
                         ChatChunk(
-                            delta=choice["message"]["content"] or "",
+                            delta=content,
                             finish_reason=choice.get("finish_reason"),
                         )
                     )
