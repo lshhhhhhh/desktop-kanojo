@@ -407,6 +407,7 @@ class CompanionWindow(QMainWindow):
             )
             self._init_observer(cfg)
             self._init_voice(cfg)
+            self._check_live2d_model(self.live2d_cfg)
             # First-run guidance: if the default chat backend has no API key,
             # chat will silently 401 on first message. Pop a one-shot dialog
             # right after the window paints and offer to open the model tab.
@@ -414,6 +415,21 @@ class CompanionWindow(QMainWindow):
         else:
             self.chat.show_system_note("no session bound — chat disabled")
             self.chat.set_input_enabled(False)
+
+    def _check_live2d_model(self, live2d_cfg) -> None:
+        """If the active Live2D model files aren't on disk, the WebView will
+        show a small red 'load error' in the corner. That's easy to miss, so
+        surface a clear chat-panel note pointing at the docs."""
+        model_file = live2d_cfg.model_dir / live2d_cfg.model_file
+        if model_file.is_file():
+            return
+        active = live2d_cfg.model_dir.name
+        self.chat.show_system_note(
+            f"Live2D 模型未找到（live2d/models/{active}/{live2d_cfg.model_file}）。"
+            f"把模型放到 live2d/models/<name>/ 并设置 config.yaml 的 "
+            f"live2d.active_model；或参见 docs/live2d-models.md。"
+            f"\n聊天功能不受影响。"
+        )
 
     def _init_voice(self, cfg: dict) -> None:
         vcfg = cfg.get("voice") or {}
