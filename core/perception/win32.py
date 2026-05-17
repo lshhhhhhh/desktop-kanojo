@@ -5,6 +5,7 @@ Gracefully degrades to no-ops on non-Windows platforms.
 
 from __future__ import annotations
 
+import os
 import sys
 
 if sys.platform == "win32":
@@ -20,6 +21,11 @@ if sys.platform == "win32":
     _user32 = ctypes.windll.user32
     _kernel32 = ctypes.windll.kernel32
 
+    # PROCESS_QUERY_LIMITED_INFORMATION — Vista+ low-privilege handle, enough
+    # for QueryFullProcessImageNameW. Doesn't trigger UAC even for elevated
+    # foreground processes (which a normal app can't OpenProcess otherwise).
+    _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
     def get_active_window_title() -> str:
         try:
             hwnd = _user32.GetForegroundWindow()
@@ -31,6 +37,39 @@ if sys.platform == "win32":
             buf = ctypes.create_unicode_buffer(length + 1)
             _user32.GetWindowTextW(hwnd, buf, length + 1)
             return buf.value or ""
+        except Exception:
+            return ""
+
+    def get_active_window_process_name() -> str:
+        """Returns the basename of the foreground window's process exe
+        (e.g. 'notepad.exe', '1Password.exe'). Empty string on failure.
+
+        Process names are far more stable than window titles for privacy
+        matching — they're set by the developer, not by current UI state."""
+        try:
+            hwnd = _user32.GetForegroundWindow()
+            if not hwnd:
+                return ""
+            pid = wintypes.DWORD(0)
+            _user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if not pid.value:
+                return ""
+            hproc = _kernel32.OpenProcess(
+                _PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value
+            )
+            if not hproc:
+                return ""
+            try:
+                buf = ctypes.create_unicode_buffer(1024)
+                size = wintypes.DWORD(len(buf))
+                ok = _kernel32.QueryFullProcessImageNameW(
+                    hproc, 0, buf, ctypes.byref(size)
+                )
+                if not ok:
+                    return ""
+                return os.path.basename(buf.value or "")
+            finally:
+                _kernel32.CloseHandle(hproc)
         except Exception:
             return ""
 
@@ -49,6 +88,9 @@ if sys.platform == "win32":
 else:
 
     def get_active_window_title() -> str:
+        return ""
+
+    def get_active_window_process_name() -> str:
         return ""
 
     def get_idle_seconds() -> float:

@@ -54,11 +54,24 @@ embedding:
 
 perception:
   privacy:
-    blur_password_fields: true
+    blur_password_fields: true     # not implemented yet — UIAutomation-based work
+    # Substring match on the foreground window's title (case-insensitive).
+    # Useful for browser tabs or dialog headers that surface the sensitive
+    # context as text ("1Password 7 — Browser", "Online Banking - Chase").
     blocked_window_titles:
       - "1Password"
       - "KeePass"
       - "Bitwarden"
+      - "Online Banking"
+    # Exact basename match on the foreground process's exe (case-insensitive).
+    # Stronger signal than title — process names don't change with what the
+    # user is doing inside the app. Add the exe of anything you don't want
+    # screenshots of (password managers, secret stores, IRS/tax software...).
+    blocked_processes:
+      - "1Password.exe"
+      - "KeePass.exe"
+      - "KeePassXC.exe"
+      - "Bitwarden.exe"
   proactive:
     enabled: true              # let her start conversations on her own
     timer_seconds: 600         # every 10 min the timer fires an eval
