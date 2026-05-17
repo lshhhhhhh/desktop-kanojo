@@ -36,14 +36,11 @@ brain:
       vision: true
       supports_temperature: false
       uses_max_completion_tokens: true
-    openai-gpt55-pro:
-      provider: openai_compat
-      base_url: https://api.openai.com/v1
-      api_key_env: OPENAI_API_KEY
-      model: gpt-5.5-pro
-      vision: true
-      supports_temperature: false
-      uses_max_completion_tokens: true
+      # Note: gpt-5.5-pro / gpt-5.4-pro are reasoning-only models that
+      # OpenAI does not expose on /v1/chat/completions ("This is not a
+      # chat model"). They require the Responses API, which we don't
+      # speak yet. Omitted here to avoid 404s on the test-connectivity
+      # button.
     gemini-pro:
       provider: openai_compat
       base_url: https://generativelanguage.googleapis.com/v1beta/openai
