@@ -83,6 +83,37 @@ def set_live2d_active_model(
     save(prefs, path)
 
 
+def get_local_backend(path: Path = DEFAULT_PATH) -> dict[str, str]:
+    """Returns the user's local-backend overrides (LM Studio / Ollama /
+    llama.cpp server endpoint). Schema: {base_url, model, api_key}.
+    Empty dict = use config.yaml defaults."""
+    val = load(path).get("local_backend") or {}
+    return val if isinstance(val, dict) else {}
+
+
+def set_local_backend(
+    base_url: str = "",
+    model: str = "",
+    api_key: str = "",
+    path: Path = DEFAULT_PATH,
+) -> None:
+    """Persist local-backend endpoint settings. Pass empty strings to clear
+    individual fields (the example fallback will then apply)."""
+    prefs = load(path)
+    overrides: dict[str, str] = {}
+    if base_url:
+        overrides["base_url"] = base_url
+    if model:
+        overrides["model"] = model
+    if api_key:
+        overrides["api_key"] = api_key
+    if overrides:
+        prefs["local_backend"] = overrides
+    else:
+        prefs.pop("local_backend", None)
+    save(prefs, path)
+
+
 def get_voice_overrides(path: Path = DEFAULT_PATH) -> dict[str, Any]:
     """User edits to the voice section (backend selection + edge-tts /
     gpt-sovits parameters). Returned dict is shallow-merged into

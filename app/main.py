@@ -44,6 +44,27 @@ def load_config() -> dict:
     raise FileNotFoundError("config.yaml or config.example.yaml not found in cwd")
 
 
+def _apply_local_backend_overrides(cfg: dict) -> None:
+    """Overlay preferences.local_backend onto cfg.brain.backends.local-qwen.
+
+    Lets the user point the "local" entry at any OpenAI-compatible server
+    (LM Studio default 127.0.0.1:1234, Ollama 127.0.0.1:11434/v1, llama.cpp
+    server, vLLM, ...) and pick the model id without editing config.yaml.
+    """
+    from core import preferences
+
+    overrides = preferences.get_local_backend()
+    if not overrides:
+        return
+    backends = (cfg.get("brain") or {}).get("backends") or {}
+    target = backends.get("local-qwen")
+    if not isinstance(target, dict):
+        return
+    for k in ("base_url", "model", "api_key"):
+        if overrides.get(k):
+            target[k] = overrides[k]
+
+
 def _apply_voice_overrides(cfg: dict) -> None:
     """Merge preferences.yaml's voice_overrides into cfg['voice'].
 
@@ -112,6 +133,7 @@ def _merge_new_keys_from_example(user_cfg: dict, example_cfg: dict) -> None:
 
 def main() -> int:
     cfg = load_config()
+    _apply_local_backend_overrides(cfg)
     # Apply user-edited voice settings from the UI before any code reads
     # cfg["voice"]. Shallow merge so a saved backend/voice/rate from the
     # settings dialog wins over config.example defaults; nested dicts

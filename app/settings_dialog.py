@@ -1161,8 +1161,81 @@ class SettingsDialog(QDialog):
         self.model_status.setWordWrap(True)
         layout.addWidget(self.model_status)
 
+        # --- local backend (LM Studio / Ollama / llama.cpp / vLLM) ---
+        layout.addSpacing(12)
+        layout.addWidget(QLabel("<b>本地后端</b>（LM Studio / Ollama / llama.cpp 等）"))
+
+        local_cur = preferences.get_local_backend()
+        local_default = (
+            ((self.cfg.get("brain") or {}).get("backends") or {}).get("local-qwen")
+            or {}
+        )
+        local_form = QFormLayout()
+
+        self.local_url_input = QLineEdit(
+            local_cur.get("base_url") or local_default.get("base_url") or ""
+        )
+        self.local_url_input.setPlaceholderText(
+            "LM Studio: http://127.0.0.1:1234/v1   "
+            "Ollama: http://127.0.0.1:11434/v1"
+        )
+        local_form.addRow("base_url：", self.local_url_input)
+
+        self.local_model_input = QLineEdit(
+            local_cur.get("model") or local_default.get("model") or ""
+        )
+        self.local_model_input.setPlaceholderText(
+            "服务端列出的 model id，如 qwen/qwen3-vl-30b"
+        )
+        local_form.addRow("model：", self.local_model_input)
+
+        layout.addLayout(local_form)
+
+        local_btn_row = QHBoxLayout()
+        save_local_btn = QPushButton("保存本地后端")
+        save_local_btn.clicked.connect(self._save_local_backend)
+        local_btn_row.addWidget(save_local_btn)
+        local_btn_row.addStretch(1)
+        layout.addLayout(local_btn_row)
+
+        hint2 = QLabel(
+            "保存后选「local-qwen」作为默认聊天后端，"
+            "或在路由里指定具体任务用它。重启或测试连通时生效。"
+        )
+        hint2.setStyleSheet("color: #aaa;")
+        hint2.setWordWrap(True)
+        layout.addWidget(hint2)
+
         layout.addStretch(1)
         return w
+
+    def _save_local_backend(self) -> None:
+        """Persist user's LM Studio / Ollama endpoint to preferences and
+        live-update the existing local-qwen backend so the next chat (or
+        test-connectivity click) hits the new endpoint without restart."""
+        from core import preferences
+
+        url = self.local_url_input.text().strip()
+        model = self.local_model_input.text().strip()
+        if not url or not model:
+            QMessageBox.warning(
+                self, "缺字段", "base_url 和 model 都要填。"
+            )
+            return
+        preferences.set_local_backend(base_url=url, model=model)
+        # Live update: rebuild the local-qwen backend on the running
+        # router so /test connectivity picks up the new URL immediately.
+        if self.session is not None and self.session.router is not None:
+            backend = self.session.router.backends.get("local-qwen")
+            if backend is not None:
+                backend.base_url = url.rstrip("/")
+                backend.model = model
+        QMessageBox.information(
+            self,
+            "已保存",
+            f"本地后端已指向：\n{url}\n模型：{model}\n\n"
+            "选「local-qwen」作为默认聊天后端来用它。",
+        )
 
     def _refresh_key_status(self, env_name: str) -> None:
         from core import env_file
