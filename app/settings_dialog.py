@@ -144,8 +144,14 @@ class SettingsDialog(QDialog):
         self.user_address_input.setPlaceholderText(
             "如「哥哥」「主人」或你的真名；留空 = 默认「你」"
         )
+        self.relationship_input = QLineEdit()
+        self.relationship_input.setMaxLength(16)
+        self.relationship_input.setPlaceholderText(
+            "如「妹妹」「管家」「猫」；留空 = 不显式说"
+        )
         form.addRow("名字：", self.name_input)
         form.addRow("聊天前缀：", self.prefix_input)
+        form.addRow("她是用户的：", self.relationship_input)
         form.addRow("她对我的称呼：", self.user_address_input)
         layout.addLayout(form)
 
@@ -157,7 +163,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.system_prompt_edit, 2)
 
         # Also update preview on metadata fields above.
-        for w_edit in (self.name_input, self.user_address_input):
+        for w_edit in (self.name_input, self.user_address_input, self.relationship_input):
             w_edit.textChanged.connect(self._refresh_persona_preview)
 
         layout.addWidget(QLabel("发给 LLM 的完整 prompt（只读 · 自动拼接）："))
@@ -217,6 +223,7 @@ class SettingsDialog(QDialog):
         self.name_input.setText(p.name)
         self.prefix_input.setText(p.display_prefix)
         self.user_address_input.setText(p.user_address)
+        self.relationship_input.setText(p.relationship)
         self.system_prompt_edit.setPlainText(p.system_prompt)
         self.examples_edit.setPlainText(_format_examples(p.examples))
         self._refresh_persona_preview()
@@ -239,6 +246,7 @@ class SettingsDialog(QDialog):
             display_prefix=self.prefix_input.text().strip() or "妹",
             system_prompt=self.system_prompt_edit.toPlainText().strip(),
             user_address=self.user_address_input.text().strip(),
+            relationship=self.relationship_input.text().strip(),
             examples=_parse_examples(self.examples_edit.toPlainText()),
         )
 
@@ -259,6 +267,7 @@ class SettingsDialog(QDialog):
             system_prompt=new_prompt,
             examples=new_examples,
             user_address=p.user_address,
+            relationship=p.relationship,
         )
         return renamed, count
 
