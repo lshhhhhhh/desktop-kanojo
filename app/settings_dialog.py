@@ -149,14 +149,29 @@ class SettingsDialog(QDialog):
         form.addRow("她对我的称呼：", self.user_address_input)
         layout.addLayout(form)
 
-        layout.addWidget(QLabel("系统提示词："))
+        layout.addWidget(QLabel("系统提示词（只写人设描述，不用写角色名/称呼）："))
         self.system_prompt_edit = QPlainTextEdit()
-        self.system_prompt_edit.setMinimumHeight(140)
+        self.system_prompt_edit.setMinimumHeight(120)
+        # Live-update preview as the user types.
+        self.system_prompt_edit.textChanged.connect(self._refresh_persona_preview)
         layout.addWidget(self.system_prompt_edit, 2)
+
+        # Also update preview on metadata fields above.
+        for w_edit in (self.name_input, self.user_address_input):
+            w_edit.textChanged.connect(self._refresh_persona_preview)
+
+        layout.addWidget(QLabel("发给 LLM 的完整 prompt（只读 · 自动拼接）："))
+        self.persona_preview = QPlainTextEdit()
+        self.persona_preview.setReadOnly(True)
+        self.persona_preview.setMinimumHeight(100)
+        self.persona_preview.setStyleSheet(
+            "QPlainTextEdit { background-color: #1a1a24; color: #888; }"
+        )
+        layout.addWidget(self.persona_preview, 1)
 
         layout.addWidget(QLabel("示范对话（一行用户、一行助手，空行分隔）："))
         self.examples_edit = QPlainTextEdit()
-        self.examples_edit.setMinimumHeight(120)
+        self.examples_edit.setMinimumHeight(100)
         layout.addWidget(self.examples_edit, 2)
 
         btn_row = QHBoxLayout()
@@ -204,6 +219,19 @@ class SettingsDialog(QDialog):
         self.user_address_input.setText(p.user_address)
         self.system_prompt_edit.setPlainText(p.system_prompt)
         self.examples_edit.setPlainText(_format_examples(p.examples))
+        self._refresh_persona_preview()
+
+    def _refresh_persona_preview(self) -> None:
+        """Recompose the full system prompt from the current UI state and
+        show it in the read-only preview. Cheap enough to re-run on every
+        keystroke."""
+        if not hasattr(self, "persona_preview"):
+            return
+        try:
+            p = self._persona_from_ui()
+            self.persona_preview.setPlainText(p.composed_system_prompt())
+        except Exception:
+            self.persona_preview.setPlainText("(无法预览)")
 
     def _persona_from_ui(self) -> Persona:
         return Persona(

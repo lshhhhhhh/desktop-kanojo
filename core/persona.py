@@ -73,6 +73,34 @@ class Persona:
         with path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 
+    def composed_system_prompt(self) -> str:
+        """Final system prompt sent to the LLM.
+
+        Built by wrapping the user-editable `system_prompt` (which should
+        contain only the *flavor* of the character: personality, speech
+        style, taboos) with auto-generated metadata clauses:
+
+          1. role name (from .name)
+          2. user's authored body
+          3. self-reference rule (always "use 我")
+          4. user address (from .user_address, if set)
+
+        Keeping metadata out of system_prompt means rotating the
+        user-address (or any future settings-managed knob) doesn't
+        require editing the prompt text. The settings dialog uses this
+        same method to render a read-only preview so users can see what
+        the LLM will actually receive.
+        """
+        parts: list[str] = [f"角色名：{self.name}"]
+        body = (self.system_prompt or "").strip()
+        if body:
+            parts.append(body)
+        parts.append("自称：用「我」")
+        addr = (self.user_address or "").strip()
+        if addr:
+            parts.append(f"用户希望你称呼他为「{addr}」。")
+        return "\n\n".join(parts)
+
     @staticmethod
     def list_available(personas_dir: str | Path) -> list[str]:
         d = Path(personas_dir)

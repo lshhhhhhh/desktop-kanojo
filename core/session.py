@@ -133,22 +133,19 @@ class ChatSession:
 
     def set_persona(self, persona: Persona) -> None:
         self.persona_obj = persona
-        prompt = persona.system_prompt
-        # Append the user's preferred form of address (e.g. "哥哥", "主人",
-        # real name) as a final clause. Keeping it outside the saved
-        # system_prompt means users can rotate the address without editing
-        # the persona file.
-        addr = (persona.user_address or "").strip()
+        # persona.composed_system_prompt() handles all the metadata
+        # wrapping (role name, self-reference, user-address). We only
+        # touch examples here.
+        self.persona = persona.composed_system_prompt()
         examples = list(persona.examples)
+        addr = (persona.user_address or "").strip()
         if addr:
-            prompt = prompt.rstrip() + f"\n\n用户希望你称呼他为「{addr}」。"
             # Rewrite the AI's lines in the example dialogs to use the new
             # address. Without this the few-shot examples keep showing the
             # model saying "你" and it tends to copy that, ignoring the
             # system-prompt instruction. We only touch assistant lines; user
             # lines (where "你" usually refers to the AI) are left alone.
             examples = [(u, a.replace("你", addr)) for u, a in examples]
-        self.persona = prompt
         self.example_dialogs = examples
         self.persona_display_prefix = persona.display_prefix
 
