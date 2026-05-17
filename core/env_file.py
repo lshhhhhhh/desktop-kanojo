@@ -17,6 +17,37 @@ DEFAULT_ENV_PATH = Path(".env")
 _LINE_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
 
 
+# Where each provider's API key console lives, with a short blurb for the UI.
+# Used by both the first-run wizard and the model settings tab — single
+# source of truth so we don't drift between the two surfaces.
+KEY_SOURCES: dict[str, tuple[str, str]] = {
+    "DEEPSEEK_API_KEY": (
+        "https://platform.deepseek.com/api_keys",
+        "DeepSeek 在中国可访问，注册送免费额度",
+    ),
+    "ZHIPU_API_KEY": (
+        "https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys",
+        "智谱 GLM-4V-Flash 免费多模态，中国可访问",
+    ),
+    "DASHSCOPE_API_KEY": (
+        "https://bailian.console.aliyun.com/",
+        "阿里百炼（Qwen-VL），新用户送 quota，中国可访问",
+    ),
+    "OPENAI_API_KEY": (
+        "https://platform.openai.com/api-keys",
+        "OpenAI（需国际网络）",
+    ),
+    "GEMINI_API_KEY": (
+        "https://aistudio.google.com/apikey",
+        "Google AI Studio，免费额度充足（需国际网络）",
+    ),
+    "ANTHROPIC_API_KEY": (
+        "https://console.anthropic.com/",
+        "Anthropic Claude（需国际网络）",
+    ),
+}
+
+
 def read_env_value(name: str, path: Path = DEFAULT_ENV_PATH) -> str | None:
     """Return the value for `name` from the .env file, or None if missing.
     Honors quoted values; does not consult os.environ."""

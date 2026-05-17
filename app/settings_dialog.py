@@ -822,6 +822,19 @@ class SettingsDialog(QDialog):
             row.addWidget(edit, 1)
             row.addWidget(reveal_btn)
             row.addWidget(save_btn)
+
+            # "获取" button opens the provider's API-key console in the
+            # default browser. Only added when we know where to send them.
+            url_info = env_file.KEY_SOURCES.get(env_name)
+            if url_info:
+                get_btn = QPushButton("获取")
+                get_btn.setFixedWidth(56)
+                get_btn.setToolTip(url_info[1])
+                get_btn.clicked.connect(
+                    lambda _=False, u=url_info[0]: self._open_url(u)
+                )
+                row.addWidget(get_btn)
+
             row_w = QWidget()
             row_w.setLayout(row)
             key_box.addRow(env_name + "：", row_w)
@@ -890,6 +903,12 @@ class SettingsDialog(QDialog):
         else:
             label.setText("○ 未设置")
             label.setStyleSheet("color: #d07070;")
+
+    def _open_url(self, url: str) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        QDesktopServices.openUrl(QUrl(url))
 
     def _save_api_key(self, env_name: str) -> None:
         import os

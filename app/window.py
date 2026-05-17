@@ -638,35 +638,6 @@ class CompanionWindow(QMainWindow):
         js = f"if(window.imouto) window.imouto.setMouthOpen({value:.3f});"
         self.view.page().runJavaScript(js)
 
-    # Where each provider's API key console lives. Used to give users a
-    # one-click route to register when the wizard fires for a missing key.
-    _KEY_SOURCES: dict[str, tuple[str, str]] = {
-        "DEEPSEEK_API_KEY": (
-            "https://platform.deepseek.com/api_keys",
-            "DeepSeek 在中国可访问，注册送免费额度",
-        ),
-        "ZHIPU_API_KEY": (
-            "https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys",
-            "智谱 GLM-4V-Flash 免费多模态，中国可访问",
-        ),
-        "DASHSCOPE_API_KEY": (
-            "https://bailian.console.aliyun.com/",
-            "阿里百炼（Qwen-VL），新用户送 quota，中国可访问",
-        ),
-        "OPENAI_API_KEY": (
-            "https://platform.openai.com/api-keys",
-            "OpenAI（需国际网络）",
-        ),
-        "GEMINI_API_KEY": (
-            "https://aistudio.google.com/apikey",
-            "Google AI Studio，免费额度充足（需国际网络）",
-        ),
-        "ANTHROPIC_API_KEY": (
-            "https://console.anthropic.com/",
-            "Anthropic Claude（需国际网络）",
-        ),
-    }
-
     def _check_required_api_keys(self) -> None:
         """If the active chat backend has no API key configured, surface a
         dialog and offer to open the model tab. Runs once at startup; can
@@ -687,8 +658,10 @@ class CompanionWindow(QMainWindow):
         # Look up which env var this backend wants, and the matching
         # registration URL + blurb. Fall back to "open settings only" if
         # we don't recognize the env var.
+        from core.env_file import KEY_SOURCES
+
         api_key_env = getattr(backend, "api_key_env", None)
-        url_info = self._KEY_SOURCES.get(api_key_env or "")
+        url_info = KEY_SOURCES.get(api_key_env or "")
 
         box = QMessageBox(self)
         box.setWindowTitle("需要 API 密钥")
