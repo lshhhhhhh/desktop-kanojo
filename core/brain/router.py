@@ -5,6 +5,7 @@ from typing import Any
 from loguru import logger
 
 from .base import LLMBackend
+from .gemini_native import GeminiNativeBackend
 from .openai_compat import OpenAICompatBackend
 
 
@@ -43,6 +44,15 @@ class Router:
                     uses_max_completion_tokens=b.get(
                         "uses_max_completion_tokens", False
                     ),
+                )
+            elif provider == "gemini_native":
+                backends[name] = GeminiNativeBackend(
+                    name=name,
+                    model=b["model"],
+                    api_key=b.get("api_key"),
+                    api_key_env=b.get("api_key_env"),
+                    vision=b.get("vision", True),
+                    search=b.get("search", False),
                 )
             else:
                 raise ValueError(f"Unknown provider: {provider}")
