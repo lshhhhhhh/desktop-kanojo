@@ -57,6 +57,9 @@ class Live2DConfig:
     fit_mode: str = "portrait"            # "portrait" | "fit"
     lip_sync_param: str = "ParamMouthOpenY"
     emotion_mapping: dict[str, str] = field(default_factory=dict)
+    # emotion → motion fallback. Used when the model has no expression data
+    # (or no entry for this emotion). Each value is {group: str, index: int}.
+    motion_mapping: dict[str, dict[str, Any]] = field(default_factory=dict)
     expression_decay_seconds: float = 8.0  # 0 disables decay
 
     @property
@@ -98,6 +101,7 @@ class Live2DConfig:
             emotion_mapping=dict(
                 data.get("emotion_mapping") or DEFAULT_EMOTION_MAPPING
             ),
+            motion_mapping=dict(data.get("motion_mapping") or {}),
             expression_decay_seconds=float(
                 live2d_cfg.get("expression_decay_seconds", 8.0)
             ),

@@ -835,16 +835,32 @@ class CompanionWindow(QMainWindow):
         if not emotion:
             return
         expr = self.live2d_cfg.emotion_mapping.get(emotion)
-        if expr is None:
-            # 平静 / unknown: clear expression
-            js = "if(window.imouto) window.imouto.clearExpression();"
-        else:
+        if expr is not None:
             js = (
                 "if(window.imouto) window.imouto.setExpression("
                 + json.dumps(expr, ensure_ascii=False)
                 + ");"
             )
-        self.view.page().runJavaScript(js)
+            self.view.page().runJavaScript(js)
+            return
+
+        # No expression for this emotion. Try motion fallback so motion-only
+        # models (Hiyori Pro EN-style SDK samples) still react visibly.
+        motion = self.live2d_cfg.motion_mapping.get(emotion)
+        if motion:
+            group = json.dumps(motion.get("group", ""), ensure_ascii=False)
+            index = int(motion.get("index", 0))
+            js = (
+                f"if(window.imouto) window.imouto.playMotion({group}, {index});"
+            )
+            self.view.page().runJavaScript(js)
+            return
+
+        # Nothing mapped — at least clear any lingering expression so she
+        # doesn't get stuck on the previous emotion's face.
+        self.view.page().runJavaScript(
+            "if(window.imouto) window.imouto.clearExpression();"
+        )
 
     def _display_prefix(self) -> str:
         if self.session is not None and hasattr(self.session, "persona_display_prefix"):

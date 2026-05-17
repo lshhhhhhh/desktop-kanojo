@@ -142,12 +142,15 @@ def install_zip(zip_path: Path, models_root: Path = MODELS_ROOT) -> InstallResul
             name = name_map.get(rel) or name_map.get(p.name) or p.stem
             expression_entries.append({"Name": name, "File": rel})
 
+        model3_data = importer._read_json(model3) or {}
+        motion_groups = importer._list_motion_groups(model3_data)
+
         importer._patch_model3(
             model3, expression_entries, mouth_param, dry_run=False
         )
         importer._write_sidecar(
             target, model3, mouth_param, expression_entries,
-            dry_run=False, force=False,
+            motion_groups, dry_run=False, force=False,
         )
     except Exception:
         # Any failure after extraction leaves the user with a half-installed
