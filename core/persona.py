@@ -18,7 +18,7 @@ class Persona:
     examples: list[tuple[str, str]] = field(default_factory=list)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> "Persona":
+    def from_file(cls, path: str | Path) -> Persona:
         path = Path(path)
         with path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
@@ -34,7 +34,7 @@ class Persona:
         )
 
     @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> "Persona":
+    def from_config(cls, cfg: dict[str, Any]) -> Persona:
         p = cfg.get("persona", {}) or {}
         active = p.get("active", "default")
         base = Path(p.get("path", "./personas"))

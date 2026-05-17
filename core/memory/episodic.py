@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -23,7 +23,7 @@ class Episode:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _vec_bytes(arr: np.ndarray) -> bytes:
@@ -37,7 +37,7 @@ class EpisodicStore:
     composite = similarity + recency_weight * recency + importance_weight * importance.
     """
 
-    def __init__(self, conn: sqlite3.Connection, embedder: "Embedder") -> None:
+    def __init__(self, conn: sqlite3.Connection, embedder: Embedder) -> None:
         self.conn = conn
         self.embedder = embedder
 
@@ -93,7 +93,7 @@ class EpisodicStore:
             (_vec_bytes(q_vec), knn_k),
         ).fetchall()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         scored: list[tuple[Episode, float]] = []
         for r in rows:
             # vec0 with distance_metric=cosine returns cosine distance in [0, 2];

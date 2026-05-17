@@ -75,8 +75,8 @@ class Reflector:
 
     def __init__(
         self,
-        router: "Router",
-        fact_store: "FactStore",
+        router: Router,
+        fact_store: FactStore,
         intent: str = "reflection",
     ) -> None:
         self.router = router
@@ -85,7 +85,7 @@ class Reflector:
 
     async def reflect(
         self,
-        episodes: list["Episode"],
+        episodes: list[Episode],
         max_retries: int = 3,
     ) -> list[dict]:
         if not episodes:

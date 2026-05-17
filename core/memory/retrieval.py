@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .working import WorkingMemory
 
 
-def render_facts_block(facts: list["Fact"]) -> str:
+def render_facts_block(facts: list[Fact]) -> str:
     if not facts:
         return ""
     lines = ["[关于用户的已知事实]"]
@@ -33,9 +33,9 @@ async def assemble_context(
     *,
     user_text: str,
     persona: str,
-    working: "WorkingMemory",
-    fact_store: "FactStore",
-    episodic_store: "EpisodicStore",
+    working: WorkingMemory,
+    fact_store: FactStore,
+    episodic_store: EpisodicStore,
     top_k_episodes: int = 5,
     example_dialogs: list[tuple[str, str]] | None = None,
 ) -> list[Message]:

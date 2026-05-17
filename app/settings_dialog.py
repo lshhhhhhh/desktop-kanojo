@@ -86,7 +86,7 @@ class SettingsDialog(QDialog):
     def __init__(
         self,
         cfg: dict,
-        session: "ChatSession | None",
+        session: ChatSession | None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -812,7 +812,6 @@ class SettingsDialog(QDialog):
             return first
 
         self.model_status.setText(f"测试 {name} ...")
-        loop = asyncio.get_event_loop()
         task = asyncio.ensure_future(run())
 
         def done(t: asyncio.Task) -> None:

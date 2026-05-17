@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GPT-SoVITS upstream
+    url: https://github.com/RVC-Boss/GPT-SoVITS/issues
+    about: Voice training pipeline bugs (not desktop-kanojo's wrapper).

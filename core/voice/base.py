@@ -24,7 +24,7 @@ class TTSBackend(ABC):
         """Yield AudioChunks for this text. Caller handles playback + lip sync."""
 
     @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> "TTSBackend":  # noqa: D401
+    def from_config(cls, cfg: dict[str, Any]) -> TTSBackend:  # noqa: D401
         """Factory: read `voice` block, dispatch to right backend."""
         voice = cfg.get("voice") or {}
         backend_name = voice.get("backend", "edge-tts")

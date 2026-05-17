@@ -21,21 +21,21 @@ class Speaker:
 
     def __init__(
         self,
-        backend: "TTSBackend",
+        backend: TTSBackend,
         on_mouth: Callable[[float], None] | None = None,
         *,
         envelope_gain: float = 3.5,
-        audio_device: "QAudioDevice | None" = None,
+        audio_device: QAudioDevice | None = None,
     ) -> None:
         self.backend = backend
         self.on_mouth = on_mouth
         self._envelope_gain = envelope_gain
-        self._audio_device: "QAudioDevice | None" = audio_device
+        self._audio_device: QAudioDevice | None = audio_device
         self._queue: asyncio.Queue[str | None] = asyncio.Queue()
         self._task: asyncio.Task | None = None
         self._enabled = True
 
-    def set_audio_device(self, device: "QAudioDevice | None") -> None:
+    def set_audio_device(self, device: QAudioDevice | None) -> None:
         """Switch output device. Takes effect on the *next* sentence — the
         currently-playing sentence's sink isn't replaced mid-stream."""
         self._audio_device = device

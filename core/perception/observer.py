@@ -34,8 +34,8 @@ class ProactiveObserver:
 
     def __init__(
         self,
-        session: "ChatSession",
-        capture: "Capture",
+        session: ChatSession,
+        capture: Capture,
         on_speak: OnSpeakFn,
         *,
         enabled: bool = True,

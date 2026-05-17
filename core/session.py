@@ -3,8 +3,9 @@ from __future__ import annotations
 import base64
 import json
 import re
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import TYPE_CHECKING, AsyncIterator
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from loguru import logger
@@ -14,7 +15,6 @@ from core.persona import Persona
 
 if TYPE_CHECKING:
     from core.brain import Router
-
     from core.memory import MemoryStore
 
 
@@ -113,8 +113,8 @@ class ChatSession:
 
     def __init__(
         self,
-        router: "Router",
-        memory: "MemoryStore",
+        router: Router,
+        memory: MemoryStore,
         persona: Persona | None = None,
         intent: str = "default",
     ) -> None:

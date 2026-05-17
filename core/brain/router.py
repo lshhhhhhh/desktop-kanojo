@@ -24,7 +24,7 @@ class Router:
         self.default = default
 
     @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> "Router":
+    def from_config(cls, cfg: dict[str, Any]) -> Router:
         brain = cfg["brain"]
         backends: dict[str, LLMBackend] = {}
 

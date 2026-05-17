@@ -54,4 +54,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "SIM"]
-ignore = ["E501"]
+# E501 line-too-long: format-level, not lint-level here.
+# SIM102/SIM105/SIM117: stylistic — collapsing nested ifs / with / try-except-pass
+# can hurt readability when the inner block is real logic. We keep them out so
+# bug-finding rules (F, B) carry the real signal.
+ignore = ["E501", "SIM102", "SIM105", "SIM117"]

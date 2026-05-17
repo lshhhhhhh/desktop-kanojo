@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      # PySide6's QtWebEngine pulls native libs; install with the rest. CI
+      # never opens a window, but importing modules that mention Qt types
+      # (e.g. core/voice/playback.py) still requires the package to load.
+      - name: Install package + dev/voice extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,voice]"
+
+      - name: Ruff
+        run: ruff check .
+
+      # Tests that require API keys (GEMINI_API_KEY) self-skip when the env
+      # var is absent, so we don't need to wire secrets just to pass CI.
+      - name: Pytest
+        run: pytest -v

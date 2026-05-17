@@ -29,14 +29,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import yaml
-
 
 # -------------------------------------------------------------- environment
 
@@ -410,7 +407,7 @@ def main() -> int:
     opt_dir = f"logs/{args.name}"  # relative to gpt-sovits-dir
     (args.gpt_sovits_dir / opt_dir).mkdir(parents=True, exist_ok=True)
 
-    print(f"=== sovits-train ===")
+    print("=== sovits-train ===")
     print(f"  name       : {args.name}")
     print(f"  version    : {args.version}")
     print(f"  list       : {args.list_file}")
@@ -445,10 +442,10 @@ def main() -> int:
         print(f"  GPT weight   : {final_s1}")
     print("\nConfigure imouto:")
     print("  voice.backend: gpt-sovits")
-    print(f"  voice.sovits.ref_audio: <path to 5-10s clean clip>")
-    print(f"  voice.sovits.ref_text: <its exact transcript>")
+    print("  voice.sovits.ref_audio: <path to 5-10s clean clip>")
+    print("  voice.sovits.ref_text: <its exact transcript>")
     print("Then start the API server in the GPTSoVits env:")
-    print(f"  python api_v2.py -a 127.0.0.1 -p 9880 \\")
+    print("  python api_v2.py -a 127.0.0.1 -p 9880 \\")
     if final_s2:
         print(f"    -s {final_s2.relative_to(args.gpt_sovits_dir)} \\")
     if final_s1:

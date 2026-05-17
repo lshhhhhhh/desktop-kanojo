@@ -126,8 +126,8 @@ def main() -> int:
     elif total_dur > 2 * 3600:
         print("NOTE: > 2 hr is overkill; 30-60 min usually plenty for one voice.")
 
-    print(f"\nNext: run training with this manifest:")
-    print(f"  python tools/sovits_train.py \\")
+    print("\nNext: run training with this manifest:")
+    print("  python tools/sovits_train.py \\")
     print(f"    --name {args.speaker} \\")
     print(f"    --list-file {list_path.resolve().as_posix()} \\")
     print(f"    --wav-dir   {list_dir.resolve().as_posix()}")

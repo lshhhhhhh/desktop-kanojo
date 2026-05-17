@@ -11,13 +11,13 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 load_dotenv()
 
+from app.settings_dialog import SettingsDialog  # noqa: E402, F401
+from app.window import CompanionWindow  # noqa: E402, F401
 from core.brain import Router  # noqa: E402, F401
 from core.memory import MemoryStore  # noqa: E402, F401
 from core.perception import Capture  # noqa: E402
 from core.persona import Persona  # noqa: E402
 from core.session import ChatSession  # noqa: E402, F401
-from app.settings_dialog import SettingsDialog  # noqa: E402, F401
-from app.window import CompanionWindow  # noqa: E402, F401
 
 
 def main() -> int:

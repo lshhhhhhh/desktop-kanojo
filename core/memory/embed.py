@@ -42,7 +42,7 @@ class Embedder:
         self.api_key = key
 
     @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> "Embedder":
+    def from_config(cls, cfg: dict[str, Any]) -> Embedder:
         e = cfg["embedding"]
         return cls(
             base_url=e["base_url"],

@@ -5,9 +5,8 @@ from collections.abc import Callable
 
 import numpy as np
 from loguru import logger
-from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+from PySide6.QtCore import QIODevice
 from PySide6.QtMultimedia import QAudioDevice, QAudioFormat, QAudioSink
-
 
 # Why QAudioSink and not sounddevice/PortAudio?
 # When the app embeds a QWebEngineView (we do, for Live2D), Chromium spawns

@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.live2d_config import Live2DConfig  # noqa: E402
 
-
 LEVELS = {
     QWebEnginePage.JavaScriptConsoleMessageLevel.InfoMessageLevel: "INFO ",
     QWebEnginePage.JavaScriptConsoleMessageLevel.WarningMessageLevel: "WARN ",

@@ -5,13 +5,12 @@ import json
 import os
 import queue as thread_queue
 import threading
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 from loguru import logger
 
 from .base import ChatChunk, ChatRequest, ContentPart, LLMBackend
-
 
 # Sentinel objects shared between the sync producer thread and the async
 # consumer in `chat()`. Real chunks are ChatChunk; exceptions and end-of-stream

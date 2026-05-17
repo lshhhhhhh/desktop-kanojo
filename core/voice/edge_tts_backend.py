@@ -30,7 +30,7 @@ class EdgeTTSBackend(TTSBackend):
         self.target_sample_rate = target_sample_rate
 
     @classmethod
-    def from_config(cls, cfg: dict) -> "EdgeTTSBackend":
+    def from_config(cls, cfg: dict) -> EdgeTTSBackend:
         return cls(
             voice=cfg.get("voice", "zh-CN-XiaoxiaoNeural"),
             rate=cfg.get("rate", "+0%"),

@@ -57,7 +57,7 @@ class GPTSoVITSBackend(TTSBackend):
         self.chunk_yield_bytes = chunk_yield_bytes
 
     @classmethod
-    def from_config(cls, cfg: dict) -> "GPTSoVITSBackend":
+    def from_config(cls, cfg: dict) -> GPTSoVITSBackend:
         return cls(
             base_url=cfg.get("base_url", "http://127.0.0.1:9880"),
             ref_audio=cfg.get("ref_audio", ""),

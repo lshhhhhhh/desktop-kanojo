@@ -24,7 +24,7 @@ class MemoryStore:
         self,
         conn: sqlite3.Connection,
         embedder: Embedder,
-        router: "Router | None" = None,
+        router: Router | None = None,
         working_window_turns: int = 10,
         top_k_episodes: int = 5,
         reflection_every_n_turns: int = 6,
@@ -46,8 +46,8 @@ class MemoryStore:
     def from_config(
         cls,
         cfg: dict[str, Any],
-        router: "Router | None" = None,
-    ) -> "MemoryStore":
+        router: Router | None = None,
+    ) -> MemoryStore:
         m = cfg["memory"]
         embedder = Embedder.from_config(cfg)
         conn = open_db(m["db_path"], embedder.dim)
@@ -95,7 +95,7 @@ class MemoryStore:
         user_text: str,
         persona: str,
         example_dialogs: list[tuple[str, str]] | None = None,
-    ) -> list["Message"]:
+    ) -> list[Message]:
         return await assemble_context(
             user_text=user_text,
             persona=persona,

@@ -17,7 +17,6 @@ from typing import Any
 import yaml
 from loguru import logger
 
-
 # Used when a model has no sidecar — only meaningful as a last-resort fallback
 # (most models should ship their own emotion_mapping).
 DEFAULT_EMOTION_MAPPING: dict[str, str] = {
@@ -66,7 +65,7 @@ class Live2DConfig:
         return f"models/{self.model_dir.name}/{self.model_file}"
 
     @classmethod
-    def from_app_config(cls, app_cfg: dict[str, Any]) -> "Live2DConfig":
+    def from_app_config(cls, app_cfg: dict[str, Any]) -> Live2DConfig:
         live2d_cfg = app_cfg.get("live2d") or {}
         active = live2d_cfg.get("active_model", "March_7th")
         base = Path("live2d/models") / active

@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QPoint, Qt, QTimer, QUrl, Signal
-from PySide6.QtCore import QRectF
+from loguru import logger
+from PySide6.QtCore import QPoint, QRectF, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -16,17 +16,11 @@ from PySide6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
-    QResizeEvent,
     QTextCharFormat,
     QTextCursor,
 )
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
-
-from loguru import logger
-
-from core.live2d_config import Live2DConfig
-from core.voice import SentenceBuffer, Speaker, TTSBackend
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -38,6 +32,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from core.live2d_config import Live2DConfig
+from core.voice import SentenceBuffer, Speaker, TTSBackend
 
 if TYPE_CHECKING:
     from core.session import ChatSession
@@ -335,7 +332,7 @@ class ChatPanel(QFrame):
 class CompanionWindow(QMainWindow):
     """Frameless transparent always-on-top window with Live2D + chat panel."""
 
-    def __init__(self, cfg: dict, session: "ChatSession | None" = None) -> None:
+    def __init__(self, cfg: dict, session: ChatSession | None = None) -> None:
         super().__init__()
         self.cfg = cfg
         self.session = session

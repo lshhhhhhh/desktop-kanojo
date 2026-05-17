@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import io
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import mss
 from loguru import logger
@@ -67,7 +67,7 @@ class Capture:
             idx, orig_w, orig_h, img.size[0], img.size[1], len(png_bytes) // 1024,
         )
         return ScreenObservation(
-            ts=datetime.now(timezone.utc).isoformat(),
+            ts=datetime.now(UTC).isoformat(),
             width=img.size[0],
             height=img.size[1],
             image_b64=b64,

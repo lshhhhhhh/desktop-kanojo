@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import AsyncIterator, Literal
+from typing import Literal
 
 Role = Literal["system", "user", "assistant"]
 
@@ -21,7 +22,7 @@ class Message:
     content: list[ContentPart] = field(default_factory=list)
 
     @classmethod
-    def text(cls, role: Role, text: str) -> "Message":
+    def text(cls, role: Role, text: str) -> Message:
         return cls(role=role, content=[ContentPart(type="text", text=text)])
 
 

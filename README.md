@@ -1,5 +1,8 @@
 # desktop-kanojo
 
+[![CI](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml/badge.svg)](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 An open-source desktop AI companion: a transparent, always-on-top Live2D
 avatar that you can chat with via LLMs (cloud or local), remembers what you
 told her across sessions, optionally watches your screen to talk
@@ -26,7 +29,7 @@ proactively, and speaks back with a cloned voice.
 Requires **Python 3.11+** on Windows / macOS / Linux. PySide6 needs a desktop session.
 
 ```powershell
-git clone https://github.com/<you>/desktop-kanojo.git
+git clone https://github.com/lshhhhhhh/desktop-kanojo.git
 cd desktop-kanojo
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -118,10 +121,24 @@ The brain dispatches per-task: chat / reflection / vision / privacy_strict
 each routes to a configurable backend, so you can use a cheap free-tier
 model for fact extraction and a premium one for chat without changing code.
 
+## Platform support
+
+- **Windows 11** — primary development target, all features tested here.
+- **macOS / Linux** — the Python codebase is portable (PySide6,
+  qasync, sqlite-vec, httpx all support all three), but screen capture
+  (`core/perception/win32.py`) and the GPT-SoVITS training pipeline
+  contain Windows-specific bits. The chat + memory + Live2D + voice
+  *playback* path should work cross-platform; we just haven't verified
+  it end-to-end. Reports welcome via issues.
+
 ## Status
 
 Early. Things move; not yet 1.0. The core loop (chat + memory + voice +
 Live2D + screen-aware proactive) works end-to-end.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and PRs welcome.
 
 ## License
 
