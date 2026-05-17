@@ -1,11 +1,11 @@
-# desktop-companion
+# desktop-kanojo
 
 An open-source desktop AI companion: a transparent, always-on-top Live2D
 avatar that you can chat with via LLMs (cloud or local), remembers what you
 told her across sessions, optionally watches your screen to talk
 proactively, and speaks back with a cloned voice.
 
-![desktop-companion screenshot — Live2D avatar overlaid on a CS2 game, proactively commenting on what's on screen](screenshot/1.jpg)
+![desktop-kanojo screenshot — Live2D avatar overlaid on a CS2 game, proactively commenting on what's on screen](screenshot/1.jpg)
 
 > Originally built around an "imouto" (younger-sister) persona, but the
 > persona is fully editable — it's just a YAML file.
@@ -26,8 +26,8 @@ proactively, and speaks back with a cloned voice.
 Requires **Python 3.11+** on Windows / macOS / Linux. PySide6 needs a desktop session.
 
 ```powershell
-git clone https://github.com/<you>/desktop-companion.git
-cd desktop-companion
+git clone https://github.com/<you>/desktop-kanojo.git
+cd desktop-kanojo
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[voice]"
@@ -72,13 +72,13 @@ how to hand-tune emotion mappings.
 ### 4. Run
 
 ```powershell
-desktop-companion
+desktop-kanojo
 # or:  python -m app.main
 ```
 
 A CLI-only mode (no GUI, no voice) for headless testing:
 ```powershell
-desktop-companion-repl
+desktop-kanojo-repl
 ```
 
 Commands inside the REPL: `/facts` `/recent` `/search <q>` `/reflect` `/clear`.

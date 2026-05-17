@@ -1,4 +1,4 @@
-# GPT-SoVITS Training & desktop-companion Integration
+# GPT-SoVITS Training & desktop-kanojo Integration
 
 End-to-end walkthrough: prepare audio data → train a custom voice → expose it
 as an HTTP API → switch the app's TTS backend to use it.

@@ -1,4 +1,4 @@
-# Launch the GPT-SoVITS HTTP API server (api_v2.py) for desktop-companion's
+# Launch the GPT-SoVITS HTTP API server (api_v2.py) for desktop-kanojo's
 # voice backend. The server listens at http://127.0.0.1:9880.
 #
 # Configure via env vars (or override with -Python / -Repo / -Config):
