@@ -105,35 +105,54 @@ def install_zip(zip_path: Path, models_root: Path = MODELS_ROOT) -> InstallResul
     # Lazy-import to keep core/ free of tools/ dependency in normal hot paths.
     from tools import import_live2d as importer
 
-    model3 = importer._find_one(target, ".model3.json")
-    if model3 is None:
-        # Cleanup on failure
-        shutil.rmtree(target, ignore_errors=True)
-        raise InstallError(
-            f"no *.model3.json inside the zip (under {target.name})"
+    try:
+        model3 = importer._find_one(target, ".model3.json")
+        if model3 is None:
+            # Live2D's official sample zips often ship the Cubism Editor
+            # project at the top and the SDK-loadable runtime files in a
+            # `runtime/` (or similar) subdir. Recurse to find the actual
+            # model3.json, then hoist its sibling files to the target root
+            # so all relative paths (textures, motions, expressions) keep
+            # working.
+            candidates = sorted(target.rglob("*.model3.json"))
+            if not candidates:
+                raise InstallError(
+                    f"no *.model3.json inside the zip (under {target.name})"
+                )
+            model3 = candidates[0]
+            runtime_dir = model3.parent
+            if runtime_dir != target:
+                _hoist(runtime_dir, target)
+                model3 = target / model3.name
+
+        vtube = importer._read_json(
+            importer._find_one(target, ".vtube.json") or Path("/nonexistent")
         )
+        cdi = importer._read_json(
+            importer._find_one(target, ".cdi3.json") or Path("/nonexistent")
+        )
+        name_map = importer._extract_vtube_hotkeys(vtube)
+        mouth_param = importer._detect_mouth_param(cdi)
 
-    vtube = importer._read_json(
-        importer._find_one(target, ".vtube.json") or Path("/nonexistent")
-    )
-    cdi = importer._read_json(
-        importer._find_one(target, ".cdi3.json") or Path("/nonexistent")
-    )
-    name_map = importer._extract_vtube_hotkeys(vtube)
-    mouth_param = importer._detect_mouth_param(cdi)
+        exp_files = importer._list_expression_files(target)
+        expression_entries: list[dict] = []
+        for p in exp_files:
+            rel = p.relative_to(target).as_posix()
+            name = name_map.get(rel) or name_map.get(p.name) or p.stem
+            expression_entries.append({"Name": name, "File": rel})
 
-    exp_files = importer._list_expression_files(target)
-    expression_entries: list[dict] = []
-    for p in exp_files:
-        rel = p.relative_to(target).as_posix()
-        name = name_map.get(rel) or name_map.get(p.name) or p.stem
-        expression_entries.append({"Name": name, "File": rel})
-
-    importer._patch_model3(model3, expression_entries, mouth_param, dry_run=False)
-    importer._write_sidecar(
-        target, model3, mouth_param, expression_entries,
-        dry_run=False, force=False,
-    )
+        importer._patch_model3(
+            model3, expression_entries, mouth_param, dry_run=False
+        )
+        importer._write_sidecar(
+            target, model3, mouth_param, expression_entries,
+            dry_run=False, force=False,
+        )
+    except Exception:
+        # Any failure after extraction leaves the user with a half-installed
+        # folder that the next install attempt would refuse. Clean up.
+        shutil.rmtree(target, ignore_errors=True)
+        raise
 
     logger.info(
         "live2d_installer: installed {!r} at {} ({} expressions)",
@@ -154,3 +173,34 @@ def _sanitize(name: str) -> str:
     out = "".join(c for c in name if c not in bad).strip()
     out = out.rstrip(".")  # Windows: trailing dot in folder name is invalid
     return out
+
+
+def _hoist(src: Path, dst: Path) -> None:
+    """Move every entry from src into dst, overwriting same-named entries in
+    dst (directories are merged). Then prune `src` and any now-empty parent
+    directories up to but not including dst.
+
+    Used when a Live2D zip nests the runtime files in a subdir
+    (e.g. 'runtime/'); after hoisting, the model lives flat under dst."""
+    logger.info("hoist: {} -> {}", src, dst)
+    for entry in list(src.iterdir()):
+        target_entry = dst / entry.name
+        if target_entry.exists():
+            if target_entry.is_dir() and entry.is_dir():
+                # Merge: recursively move children
+                _hoist(entry, target_entry)
+                continue
+            # Same name, conflicting type — bail rather than clobber
+            raise InstallError(
+                f"hoist conflict: {entry} already exists at {target_entry}"
+            )
+        shutil.move(str(entry), str(target_entry))
+
+    # Walk up removing now-empty directories, stop before crossing dst.
+    cur = src
+    while cur != dst and cur.parent != cur:
+        try:
+            cur.rmdir()
+        except OSError:
+            break
+        cur = cur.parent
