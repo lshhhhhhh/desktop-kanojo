@@ -50,3 +50,17 @@ def set_audio_output_id(device_id: str | None, path: Path = DEFAULT_PATH) -> Non
     else:
         prefs["audio_output_id"] = device_id
     save(prefs, path)
+
+
+def get_chat_backend(path: Path = DEFAULT_PATH) -> str | None:
+    """Returns the user-overridden default chat backend name, or None."""
+    return load(path).get("chat_backend")
+
+
+def set_chat_backend(backend_name: str | None, path: Path = DEFAULT_PATH) -> None:
+    prefs = load(path)
+    if backend_name is None:
+        prefs.pop("chat_backend", None)
+    else:
+        prefs["chat_backend"] = backend_name
+    save(prefs, path)

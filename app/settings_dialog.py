@@ -98,6 +98,7 @@ class SettingsDialog(QDialog):
         self.personas_dir = Path(cfg.get("persona", {}).get("path", "./personas"))
 
         tabs = QTabWidget(self)
+        tabs.addTab(self._build_model_tab(), "模型")
         tabs.addTab(self._build_persona_tab(), "人设")
         tabs.addTab(self._build_proactive_tab(), "主动")
         tabs.addTab(self._build_memory_tab(), "记忆")
@@ -607,3 +608,192 @@ class SettingsDialog(QDialog):
         if obs is None or not hasattr(self, "proactive_status_label"):
             return
         self.proactive_status_label.setText(f"状态：{obs.status_text()}")
+
+    # ---------------------------------------------------------------- model
+
+    def _build_model_tab(self) -> QWidget:
+        from core import env_file, preferences
+
+        w = QWidget()
+        layout = QVBoxLayout(w)
+
+        # --- API keys ---
+        layout.addWidget(QLabel("API 密钥"))
+        key_box = QFormLayout()
+        self._key_inputs: dict[str, QLineEdit] = {}
+        self._key_status: dict[str, QLabel] = {}
+
+        required = env_file.collect_required_env_keys(self.cfg)
+        if not required:
+            key_box.addRow(QLabel("（config 中没有引用任何 api_key_env）"))
+
+        for env_name in required:
+            row = QHBoxLayout()
+            status = QLabel()
+            status.setMinimumWidth(80)
+            self._key_status[env_name] = status
+
+            edit = QLineEdit()
+            edit.setEchoMode(QLineEdit.Password)
+            edit.setPlaceholderText("（留空保持不变）")
+            self._key_inputs[env_name] = edit
+
+            save_btn = QPushButton("保存")
+            save_btn.clicked.connect(lambda _=False, n=env_name: self._save_api_key(n))
+
+            row.addWidget(status)
+            row.addWidget(edit, 1)
+            row.addWidget(save_btn)
+            row_w = QWidget()
+            row_w.setLayout(row)
+            key_box.addRow(env_name + "：", row_w)
+            self._refresh_key_status(env_name)
+
+        layout.addLayout(key_box)
+        hint = QLabel(
+            "密钥保存到 .env 文件，并立即注入当前进程。"
+            "\n注意：已构造的后端缓存了旧密钥；切换后端或重启才能完全生效。"
+        )
+        hint.setStyleSheet("color: #aaa;")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        # --- default chat backend ---
+        layout.addSpacing(12)
+        layout.addWidget(QLabel("默认聊天后端"))
+        backend_row = QHBoxLayout()
+        self.backend_combo = QComboBox()
+        router = self.session.router if self.session is not None else None
+        names = list(router.backends.keys()) if router else []
+        for name in names:
+            be = router.backends[name] if router else None
+            label = name
+            if be is not None:
+                label = f"{name}   ·   {be.model}"
+            self.backend_combo.addItem(label, name)
+        current = preferences.get_chat_backend() or (router.default if router else None)
+        if current:
+            for i in range(self.backend_combo.count()):
+                if self.backend_combo.itemData(i) == current:
+                    self.backend_combo.setCurrentIndex(i)
+                    break
+        backend_row.addWidget(self.backend_combo, 1)
+
+        apply_backend_btn = QPushButton("应用")
+        apply_backend_btn.clicked.connect(self._apply_chat_backend)
+        backend_row.addWidget(apply_backend_btn)
+        layout.addLayout(backend_row)
+
+        # --- connectivity test ---
+        test_row = QHBoxLayout()
+        test_btn = QPushButton("测试连通")
+        test_btn.clicked.connect(self._test_chat_backend)
+        test_row.addWidget(test_btn)
+        test_row.addStretch(1)
+        layout.addLayout(test_row)
+
+        self.model_status = QLabel("")
+        self.model_status.setStyleSheet("color: #aaa;")
+        self.model_status.setWordWrap(True)
+        layout.addWidget(self.model_status)
+
+        layout.addStretch(1)
+        return w
+
+    def _refresh_key_status(self, env_name: str) -> None:
+        from core import env_file
+
+        label = self._key_status.get(env_name)
+        if label is None:
+            return
+        if env_file.has_env_value(env_name):
+            label.setText("● 已设置")
+            label.setStyleSheet("color: #6cc070;")
+        else:
+            label.setText("○ 未设置")
+            label.setStyleSheet("color: #d07070;")
+
+    def _save_api_key(self, env_name: str) -> None:
+        from core import env_file
+
+        edit = self._key_inputs.get(env_name)
+        if edit is None:
+            return
+        value = edit.text().strip()
+        if not value:
+            QMessageBox.information(self, "无变化", "输入框为空，未做更改。")
+            return
+        try:
+            env_file.upsert_env_value(env_name, value)
+        except Exception as e:
+            QMessageBox.warning(self, "保存失败", str(e))
+            return
+        edit.clear()
+        self._refresh_key_status(env_name)
+        QMessageBox.information(
+            self,
+            "已保存",
+            f"{env_name} 已写入 .env。\n切换后端或重启 app 让所有路径生效。",
+        )
+
+    def _apply_chat_backend(self) -> None:
+        from core import preferences
+
+        name = self.backend_combo.currentData()
+        if not name:
+            return
+        if self.session is not None and self.session.router is not None:
+            if name not in self.session.router.backends:
+                QMessageBox.warning(self, "未知后端", f"后端 {name!r} 不在 router 中。")
+                return
+            self.session.router.default = name
+        preferences.set_chat_backend(name)
+        self.model_status.setText(
+            f"已切换默认后端为：{name}（已保存，下次启动自动生效）"
+        )
+
+    def _test_chat_backend(self) -> None:
+        """Fire a tiny round-trip against the currently-selected backend.
+        Picks up env var changes from this session (the backend object itself
+        cached its api_key at construction, so newly-saved keys won't take
+        effect here — that's why the hint above mentions a restart)."""
+        import asyncio
+
+        from core.brain.base import ChatRequest, ContentPart, Message
+
+        if self.session is None or self.session.router is None:
+            self.model_status.setText("无 session，无法测试。")
+            return
+        name = self.backend_combo.currentData()
+        backend = self.session.router.backends.get(name)
+        if backend is None:
+            self.model_status.setText(f"未知后端：{name}")
+            return
+
+        async def run() -> str:
+            req = ChatRequest(
+                messages=[Message(role="user", content=[ContentPart(type="text", text="hi")])],
+                stream=False,
+                max_tokens=8,
+            )
+            first = ""
+            async for chunk in backend.chat(req):
+                first += chunk.delta
+                if first:
+                    break
+            return first
+
+        self.model_status.setText(f"测试 {name} ...")
+        loop = asyncio.get_event_loop()
+        task = asyncio.ensure_future(run())
+
+        def done(t: asyncio.Task) -> None:
+            try:
+                reply = t.result()
+                self.model_status.setText(
+                    f"{name}: ✓ 回复：{(reply or '(空)')[:60]}"
+                )
+            except Exception as e:
+                self.model_status.setText(f"{name}: ✗ {type(e).__name__}: {e}")
+
+        task.add_done_callback(done)

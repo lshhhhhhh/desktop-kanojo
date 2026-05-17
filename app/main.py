@@ -11,6 +11,7 @@ from loguru import logger
 from PySide6.QtWidgets import QApplication
 
 from app.window import CompanionWindow
+from core import preferences
 from core.brain import Router
 from core.memory import MemoryStore
 from core.persona import Persona
@@ -37,6 +38,12 @@ def main() -> int:
     asyncio.set_event_loop(loop)
 
     router = Router.from_config(cfg)
+    # Apply the user-overridden default chat backend from preferences.yaml,
+    # if any. Set in the UI ("模型" tab). Falls back to config when unset or
+    # when the saved backend no longer exists in config.
+    saved_backend = preferences.get_chat_backend()
+    if saved_backend and saved_backend in router.backends:
+        router.default = saved_backend
     memory = MemoryStore.from_config(cfg, router=router)
     persona = Persona.from_config(cfg)
     session = ChatSession(router=router, memory=memory, persona=persona)
