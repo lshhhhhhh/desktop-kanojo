@@ -127,6 +127,7 @@ class TitleBar(QFrame):
 
     settings_clicked = Signal()
     close_clicked = Signal()
+    reset_position_clicked = Signal()
     proactive_toggled = Signal(bool)  # True = she can see; False = blindfolded
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -163,6 +164,16 @@ class TitleBar(QFrame):
         # Eye toggle: lets the user manually blind her to the screen even
         # when no blocklist rule matches. 👁 = proactive screen-eval enabled,
         # 🙈 = paused. Clicking flips the state and emits proactive_toggled.
+        # Reset Live2D position to the auto-fit center. Useful when the user
+        # accidentally drags the model off-screen and can't find it anymore.
+        self.reset_btn = QPushButton("↺", self)
+        self.reset_btn.setFixedSize(26, 26)
+        self.reset_btn.setStyleSheet(SETTINGS_BTN_FLOAT_STYLE)
+        self.reset_btn.setToolTip("把 Live2D 形象拉回中央（拖丢了时用）")
+        self.reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.reset_btn.clicked.connect(self.reset_position_clicked.emit)
+        layout.addWidget(self.reset_btn)
+
         self.eye_btn = QPushButton("👁", self)
         self.eye_btn.setFixedSize(26, 26)
         self.eye_btn.setCheckable(True)
@@ -432,6 +443,7 @@ class CompanionWindow(QMainWindow):
         self.title_bar.settings_clicked.connect(self._on_settings)
         self.title_bar.close_clicked.connect(self.close)
         self.title_bar.proactive_toggled.connect(self._on_eye_toggled)
+        self.title_bar.reset_position_clicked.connect(self._on_reset_position)
 
         central = QWidget(self)
         central.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -620,6 +632,14 @@ class CompanionWindow(QMainWindow):
         """Speaker callback: drive Live2D mouth open via JS."""
         js = f"if(window.imouto) window.imouto.setMouthOpen({value:.3f});"
         self.view.page().runJavaScript(js)
+
+    def _on_reset_position(self) -> None:
+        """Title-bar reset button: invoke the JS resetPosition() so the
+        model snaps back to auto-fit. Same effect as double-clicking the
+        model, but works when the user can't find the model to click."""
+        self.view.page().runJavaScript(
+            "if(window.imouto) window.imouto.resetPosition();"
+        )
 
     def _reload_live2d_view(self) -> None:
         """Construct the WebView URL from current self.live2d_cfg and reload.
