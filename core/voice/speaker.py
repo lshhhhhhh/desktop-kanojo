@@ -40,6 +40,14 @@ class Speaker:
         currently-playing sentence's sink isn't replaced mid-stream."""
         self._audio_device = device
 
+    def set_backend(self, backend: TTSBackend) -> None:
+        """Hot-swap the TTS backend. The currently-playing sentence (if any)
+        finishes via the old backend; the next sentence pulled from the queue
+        uses the new one. The _run loop reads self.backend at the start of
+        each sentence, so no task restart is needed."""
+        self.backend = backend
+        logger.info("speaker: backend swapped to {}", type(backend).__name__)
+
     def start(self) -> None:
         if self._task is None or self._task.done():
             self._task = asyncio.ensure_future(self._run())

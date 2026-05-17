@@ -598,10 +598,25 @@ class SettingsDialog(QDialog):
             }
         preferences.set_voice_overrides(overrides)
         self._voice_overrides = overrides
+
+        # Live-apply: merge overrides into the running cfg and hand the
+        # parent window a freshly-constructed backend. No restart needed --
+        # the currently-playing sentence finishes on the old backend, the
+        # next one picks up the new settings.
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "reload_voice"):
+            voice_cfg = parent.cfg.setdefault("voice", {})
+            for k, v in overrides.items():
+                if isinstance(v, dict) and isinstance(voice_cfg.get(k), dict):
+                    voice_cfg[k] = {**voice_cfg[k], **v}
+                else:
+                    voice_cfg[k] = v
+            parent.reload_voice()
+
         QMessageBox.information(
             self,
             "已保存",
-            f"语音设置已保存（{backend}）。重启 app 后生效。",
+            f"语音设置已应用（{backend}）。下条消息生效。",
         )
 
     def _selected_audio_device(self):
@@ -1125,30 +1140,18 @@ class SettingsDialog(QDialog):
         return out
 
     def _form_switch_to(self, name: str) -> None:
-        """Switch active model to an already-installed one. Same flow as the
-        post-install dialog: write the choice to preferences + prompt for
-        restart so the WebView reloads with the new model URL."""
-        from PySide6.QtCore import Qt as _Qt
-        from PySide6.QtWidgets import QApplication, QMessageBox
-
+        """Switch active model to an already-installed one. Writes the choice
+        to preferences and tells the parent window to reload the Live2D view
+        in place -- no restart needed."""
         from core import preferences
 
         cur = preferences.get_live2d_active_model()
         if cur == name:
             return
         preferences.set_live2d_active_model(name)
-        box = QMessageBox(self)
-        box.setWindowTitle("已切换模型")
-        box.setText(f"已切换到「{name}」。重启 app 才能看到她。")
-        box.setWindowModality(_Qt.WindowModality.WindowModal)
-        restart = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        if box.clickedButton() is restart:
-            import subprocess
-            import sys
-            subprocess.Popen([sys.executable, "-m", "app.main"])
-            QApplication.quit()
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "reload_live2d_model"):
+            parent.reload_live2d_model()
 
     def _save_api_key(self, env_name: str) -> None:
         import os

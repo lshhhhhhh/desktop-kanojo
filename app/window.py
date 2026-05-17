@@ -416,25 +416,7 @@ class CompanionWindow(QMainWindow):
         view_settings.setAttribute(
             QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True
         )
-        # In a PyInstaller-frozen build, __file__ points inside the PYZ
-        # archive (e.g. _internal/app/window.pyc), so __file__.parent.parent
-        # resolves to _internal/, not the exe's directory. tools/build.ps1
-        # promotes live2d/ next to the exe, so use sys.executable's parent
-        # in frozen mode.
-        import sys as _sys
-        if getattr(_sys, "frozen", False):
-            html_path = Path(_sys.executable).resolve().parent / "live2d" / "index.html"
-        else:
-            html_path = Path(__file__).resolve().parent.parent / "live2d" / "index.html"
-        url = QUrl.fromLocalFile(str(html_path))
-        decay_ms = int(self.live2d_cfg.expression_decay_seconds * 1000)
-        url.setQuery(
-            f"model={self.live2d_cfg.model_url_path}"
-            f"&fit={self.live2d_cfg.fit_mode}"
-            f"&mouth={self.live2d_cfg.lip_sync_param}"
-            f"&decay={decay_ms}"
-        )
-        self.view.load(url)
+        self._reload_live2d_view()
 
         self.chat = ChatPanel(self)
         self.chat.user_message.connect(self._on_user_message)
@@ -559,42 +541,24 @@ class CompanionWindow(QMainWindow):
         summary = f"{result.expressions} 个表情 · {result.motions} 个动作"
         self.chat.show_system_note(
             f"已安装 Live2D 模型「{result.name}」（{summary}）。"
-            f"重启 app 让她出现，然后到「设置 → 形象」绑定情绪。"
         )
-        # Offer to restart so the WebView reloads with the new model URL.
-        box = QMessageBox(self)
-        box.setWindowTitle("安装完成")
-        text = (
-            f"已安装「{result.name}」（{summary}）。需要重启 app 才能看到她。"
-            f"\n\n重启后到「设置 → 形象」tab 把情绪绑到她实际的表情或动作上。"
-        )
+        # Hot-swap the WebView in place. No restart needed.
+        self.reload_live2d_model()
+
         # Warn explicitly when the model has no expression data — the emotion
         # tags her LLM emits will silently no-op on this model, and the user
         # would otherwise spend time hunting an imaginary bug.
         if result.expressions == 0:
-            text += (
-                "\n\n注意：这个模型没有表情数据，只能用动作做反馈。"
+            note = (
+                f"\n注意：「{result.name}」没有表情数据，只能用动作做反馈。"
                 "想要完整表情系统，可换其他 sample（Mark / Haru / Epsilon 等带表情）。"
             )
-        box.setText(text)
-        from PySide6.QtCore import Qt as _Qt2
-        box.setWindowModality(_Qt2.WindowModality.WindowModal)
-        restart_btn = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        if box.clickedButton() is restart_btn:
-            import subprocess
-            import sys as _sys
+            self.chat.show_system_note(note)
 
-            from PySide6.QtWidgets import QApplication
-
-            # Spawn a fresh interpreter with the canonical `-m app.main` entry
-            # point — sys.argv[0] under `python -m` is a file path, so
-            # os.execv'ing the same argv would lose the package-relative
-            # import context and fail with ModuleNotFoundError: No module
-            # named 'app'. Popen + quit() keeps it simple.
-            subprocess.Popen([_sys.executable, "-m", "app.main"])
-            QApplication.quit()
+        # Nudge to bind emotions
+        self.chat.show_system_note(
+            "到「设置 → 形象」tab 把情绪绑到她实际的表情或动作上。"
+        )
 
     def _init_voice(self, cfg: dict) -> None:
         vcfg = cfg.get("voice") or {}
@@ -656,6 +620,63 @@ class CompanionWindow(QMainWindow):
         """Speaker callback: drive Live2D mouth open via JS."""
         js = f"if(window.imouto) window.imouto.setMouthOpen({value:.3f});"
         self.view.page().runJavaScript(js)
+
+    def _reload_live2d_view(self) -> None:
+        """Construct the WebView URL from current self.live2d_cfg and reload.
+        Called once on init, and from reload_live2d_model() for hot-swap."""
+        import sys as _sys
+
+        # In a PyInstaller-frozen build, __file__ points inside the PYZ
+        # archive (e.g. _internal/app/window.pyc), so __file__.parent.parent
+        # resolves to _internal/, not the exe's directory. tools/build.ps1
+        # promotes live2d/ next to the exe, so use sys.executable's parent
+        # in frozen mode.
+        if getattr(_sys, "frozen", False):
+            html_path = Path(_sys.executable).resolve().parent / "live2d" / "index.html"
+        else:
+            html_path = Path(__file__).resolve().parent.parent / "live2d" / "index.html"
+        url = QUrl.fromLocalFile(str(html_path))
+        decay_ms = int(self.live2d_cfg.expression_decay_seconds * 1000)
+        url.setQuery(
+            f"model={self.live2d_cfg.model_url_path}"
+            f"&fit={self.live2d_cfg.fit_mode}"
+            f"&mouth={self.live2d_cfg.lip_sync_param}"
+            f"&decay={decay_ms}"
+        )
+        self.view.load(url)
+
+    def reload_live2d_model(self) -> None:
+        """Hot-swap to the model currently saved in preferences.yaml. Called
+        by the settings dialog after install / switch — avoids a full app
+        restart. Re-reads the sidecar so emotion/motion mappings refresh too."""
+        self.live2d_cfg = Live2DConfig.from_app_config(self.cfg)
+        self._reload_live2d_view()
+        self.chat.show_system_note(
+            f"已切换 Live2D 模型为「{self.live2d_cfg.model_dir.name}」。"
+        )
+
+    def reload_voice(self) -> None:
+        """Hot-swap voice backend and / or parameters from cfg['voice'] (after
+        the settings dialog mutated it). If the backend type is unchanged we
+        just sync field values; if it changed, we construct a fresh backend
+        and hand it to the Speaker. The currently-playing sentence finishes
+        on the old backend; the next one uses the new one."""
+        if self.speaker is None:
+            return
+        vcfg = self.cfg.get("voice") or {}
+        if not vcfg.get("enabled", False):
+            return
+        try:
+            new_backend = TTSBackend.from_config(self.cfg)
+        except Exception as e:
+            logger.warning("reload_voice: backend construction failed: {}", e)
+            return
+        self.speaker.set_backend(new_backend)
+        backend_name = vcfg.get("backend", "edge-tts")
+        if backend_name != "gpt-sovits":
+            self.title_bar.set_status(
+                f"· TTS: {backend_name}", "rgba(160, 220, 160, 200)"
+            )
 
     def _check_required_api_keys(self) -> None:
         """If the active chat backend has no API key configured, surface a
