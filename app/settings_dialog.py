@@ -627,6 +627,8 @@ class SettingsDialog(QDialog):
         if not required:
             key_box.addRow(QLabel("（config 中没有引用任何 api_key_env）"))
 
+        import os
+
         for env_name in required:
             row = QHBoxLayout()
             status = QLabel()
@@ -635,14 +637,34 @@ class SettingsDialog(QDialog):
 
             edit = QLineEdit()
             edit.setEchoMode(QLineEdit.Password)
-            edit.setPlaceholderText("（留空保持不变）")
+            # Prefill with the currently-effective value (env > .env) so the
+            # user can see what's there, edit it, and rotate without having
+            # to dig the key out of the source again.
+            current = os.environ.get(env_name) or env_file.read_env_value(env_name) or ""
+            if current:
+                edit.setText(current)
+            else:
+                edit.setPlaceholderText("（粘贴 key）")
             self._key_inputs[env_name] = edit
+
+            reveal_btn = QPushButton("显示")
+            reveal_btn.setCheckable(True)
+            reveal_btn.setFixedWidth(56)
+            reveal_btn.toggled.connect(
+                lambda checked, e=edit, b=reveal_btn: (
+                    e.setEchoMode(
+                        QLineEdit.Normal if checked else QLineEdit.Password
+                    ),
+                    b.setText("隐藏" if checked else "显示"),
+                )
+            )
 
             save_btn = QPushButton("保存")
             save_btn.clicked.connect(lambda _=False, n=env_name: self._save_api_key(n))
 
             row.addWidget(status)
             row.addWidget(edit, 1)
+            row.addWidget(reveal_btn)
             row.addWidget(save_btn)
             row_w = QWidget()
             row_w.setLayout(row)
@@ -714,6 +736,8 @@ class SettingsDialog(QDialog):
             label.setStyleSheet("color: #d07070;")
 
     def _save_api_key(self, env_name: str) -> None:
+        import os
+
         from core import env_file
 
         edit = self._key_inputs.get(env_name)
@@ -723,12 +747,16 @@ class SettingsDialog(QDialog):
         if not value:
             QMessageBox.information(self, "无变化", "输入框为空，未做更改。")
             return
+        # No-op if unchanged — avoids touching .env when the user just
+        # opened the dialog and clicked save without editing.
+        if value == (os.environ.get(env_name) or env_file.read_env_value(env_name) or ""):
+            QMessageBox.information(self, "无变化", "与已保存的值相同。")
+            return
         try:
             env_file.upsert_env_value(env_name, value)
         except Exception as e:
             QMessageBox.warning(self, "保存失败", str(e))
             return
-        edit.clear()
         self._refresh_key_status(env_name)
         QMessageBox.information(
             self,
