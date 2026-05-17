@@ -416,7 +416,16 @@ class CompanionWindow(QMainWindow):
         view_settings.setAttribute(
             QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, True
         )
-        html_path = Path(__file__).resolve().parent.parent / "live2d" / "index.html"
+        # In a PyInstaller-frozen build, __file__ points inside the PYZ
+        # archive (e.g. _internal/app/window.pyc), so __file__.parent.parent
+        # resolves to _internal/, not the exe's directory. tools/build.ps1
+        # promotes live2d/ next to the exe, so use sys.executable's parent
+        # in frozen mode.
+        import sys as _sys
+        if getattr(_sys, "frozen", False):
+            html_path = Path(_sys.executable).resolve().parent / "live2d" / "index.html"
+        else:
+            html_path = Path(__file__).resolve().parent.parent / "live2d" / "index.html"
         url = QUrl.fromLocalFile(str(html_path))
         decay_ms = int(self.live2d_cfg.expression_decay_seconds * 1000)
         url.setQuery(
@@ -482,6 +491,7 @@ class CompanionWindow(QMainWindow):
         QTimer.singleShot(400, self._show_live2d_install_wizard)
 
     def _show_live2d_install_wizard(self) -> None:
+        from PySide6.QtCore import Qt as _Qt
         from PySide6.QtCore import QUrl as _QUrl
         from PySide6.QtGui import QDesktopServices
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -497,6 +507,10 @@ class CompanionWindow(QMainWindow):
             "（年收入 < 1000 万日元的个人/小公司可商用）。"
             "\n聊天功能即使没有形象也能用。"
         )
+        # WindowModal blocks only the parent window, not the whole desktop --
+        # users can still switch to Chrome to download the sample while this
+        # dialog is up.
+        box.setWindowModality(_Qt.WindowModality.WindowModal)
         open_site_btn = box.addButton(
             "打开 Live2D 下载页", QMessageBox.ButtonRole.ActionRole
         )
@@ -509,8 +523,11 @@ class CompanionWindow(QMainWindow):
         clicked = box.clickedButton()
         if clicked is open_site_btn:
             QDesktopServices.openUrl(_QUrl("https://www.live2d.com/en/learn/sample/"))
-            # Re-show the wizard so the user can come back after downloading.
-            QTimer.singleShot(500, self._show_live2d_install_wizard)
+            # Don't re-pop the dialog -- that's what makes it feel modal-trap.
+            # User comes back via Settings → 形象 tab when ready.
+            self.chat.show_system_note(
+                "下载完成后，到「设置 → 形象」点「选择已下载的 zip」装上。"
+            )
             return
         if clicked is not pick_zip_btn:
             return
@@ -560,6 +577,8 @@ class CompanionWindow(QMainWindow):
                 "想要完整表情系统，可换其他 sample（Mark / Haru / Epsilon 等带表情）。"
             )
         box.setText(text)
+        from PySide6.QtCore import Qt as _Qt2
+        box.setWindowModality(_Qt2.WindowModality.WindowModal)
         restart_btn = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
         box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
         box.exec()
@@ -651,6 +670,7 @@ class CompanionWindow(QMainWindow):
         if has_key:
             return
 
+        from PySide6.QtCore import Qt as _Qt
         from PySide6.QtCore import QUrl as _QUrl
         from PySide6.QtGui import QDesktopServices
         from PySide6.QtWidgets import QMessageBox
@@ -665,6 +685,9 @@ class CompanionWindow(QMainWindow):
 
         box = QMessageBox(self)
         box.setWindowTitle("需要 API 密钥")
+        # WindowModal: parent is blocked, but user can switch to browser to
+        # grab the key without dismissing the wizard.
+        box.setWindowModality(_Qt.WindowModality.WindowModal)
         msg = (
             f"当前默认后端 <b>{backend.name}</b>（{backend.model}）没有 API 密钥，"
             "聊天会请求失败。"

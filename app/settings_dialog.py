@@ -662,11 +662,41 @@ class SettingsDialog(QDialog):
 
         bindings: ModelBindings = load_bindings(model_dir)
         self._form_bindings = bindings
-        layout.addWidget(QLabel(f"模型：{model_dir.name}"))
-        layout.addWidget(QLabel(
-            f"可用：{len(bindings.expressions)} 个表情 · "
+
+        # Header row: current model name + download / switch buttons. Even
+        # when a model is installed, users may want to try a different one
+        # or grab another sample without restarting -- this used to require
+        # editing config.yaml by hand.
+        header = QHBoxLayout()
+        header.addWidget(QLabel(
+            f"当前模型：<b>{model_dir.name}</b>  ·  "
+            f"{len(bindings.expressions)} 个表情 · "
             f"{len(bindings.motions)} 个动作"
         ))
+        header.addStretch(1)
+        site_btn = QPushButton("下载新模型")
+        site_btn.clicked.connect(
+            lambda: self._open_url("https://www.live2d.com/en/learn/sample/")
+        )
+        switch_btn = QPushButton("装新模型 zip")
+        switch_btn.clicked.connect(self._form_install_zip)
+        header.addWidget(site_btn)
+        header.addWidget(switch_btn)
+
+        # Combo to switch between already-installed models (no zip needed).
+        installed = self._list_installed_models()
+        if len(installed) > 1:
+            switch_combo = QComboBox()
+            for name in installed:
+                switch_combo.addItem(name)
+            switch_combo.setCurrentText(model_dir.name)
+            switch_combo.currentTextChanged.connect(self._form_switch_to)
+            header.addWidget(QLabel("切换："))
+            header.addWidget(switch_combo)
+
+        header_w = QWidget()
+        header_w.setLayout(header)
+        layout.addWidget(header_w)
 
         # Option list shared by every dropdown. Each entry's userData is
         # either:
@@ -948,6 +978,46 @@ class SettingsDialog(QDialog):
         if parent is not None and hasattr(parent, "_install_live2d_zip"):
             parent._install_live2d_zip(Path(zip_str))
 
+    def _list_installed_models(self) -> list[str]:
+        """Return folder names under live2d/models/ that look like installed
+        models (have a model3.json)."""
+        from pathlib import Path
+
+        models_root = Path("live2d/models")
+        if not models_root.is_dir():
+            return []
+        out = []
+        for d in sorted(models_root.iterdir()):
+            if d.is_dir() and any(d.glob("*.model3.json")):
+                out.append(d.name)
+        return out
+
+    def _form_switch_to(self, name: str) -> None:
+        """Switch active model to an already-installed one. Same flow as the
+        post-install dialog: write the choice to preferences + prompt for
+        restart so the WebView reloads with the new model URL."""
+        from PySide6.QtCore import Qt as _Qt
+        from PySide6.QtWidgets import QApplication, QMessageBox
+
+        from core import preferences
+
+        cur = preferences.get_live2d_active_model()
+        if cur == name:
+            return
+        preferences.set_live2d_active_model(name)
+        box = QMessageBox(self)
+        box.setWindowTitle("已切换模型")
+        box.setText(f"已切换到「{name}」。重启 app 才能看到她。")
+        box.setWindowModality(_Qt.WindowModality.WindowModal)
+        restart = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is restart:
+            import subprocess
+            import sys
+            subprocess.Popen([sys.executable, "-m", "app.main"])
+            QApplication.quit()
+
     def _save_api_key(self, env_name: str) -> None:
         import os
 
@@ -971,11 +1041,62 @@ class SettingsDialog(QDialog):
             QMessageBox.warning(self, "保存失败", str(e))
             return
         self._refresh_key_status(env_name)
-        QMessageBox.information(
-            self,
-            "已保存",
-            f"{env_name} 已写入 .env。\n切换后端或重启 app 让所有路径生效。",
-        )
+
+        # If the user just unlocked a backend (saved a key for an env var)
+        # while the current default chat backend has no key, auto-switch the
+        # default to the first backend that now has a valid key. Saves the
+        # "save key → go change default → save again" two-step.
+        auto_switched = self._maybe_auto_switch_backend(env_name)
+
+        msg = f"{env_name} 已写入 .env。"
+        if auto_switched:
+            msg += f"\n\n已自动切换默认后端为：<b>{auto_switched}</b>"
+        else:
+            msg += "\n\n切换后端或重启 app 让所有路径生效。"
+        QMessageBox.information(self, "已保存", msg)
+
+    def _maybe_auto_switch_backend(self, just_saved_env: str) -> str | None:
+        """If the running default backend has no api_key, look for a backend
+        whose api_key_env was just satisfied (or any other backend with a
+        valid key) and switch to it. Returns the new backend's name on
+        success, or None if no switch was needed/possible."""
+        from core import preferences
+
+        router = self.session.router if self.session is not None else None
+        if router is None:
+            return None
+        cur_backend = router.backends.get(router.default)
+        if cur_backend is not None and getattr(cur_backend, "api_key", ""):
+            # Default already has a key. Nothing to do.
+            return None
+
+        # Prefer a backend that uses the env var we just saved.
+        def has_live_key(b) -> bool:
+            return bool(getattr(b, "api_key", "") or "")
+
+        candidates_pref = [
+            (name, b) for name, b in router.backends.items()
+            if getattr(b, "api_key_env", None) == just_saved_env and has_live_key(b)
+        ]
+        candidates_any = [
+            (name, b) for name, b in router.backends.items()
+            if has_live_key(b)
+        ]
+        target = (candidates_pref or candidates_any)
+        if not target:
+            return None
+        new_name, _ = target[0]
+        router.default = new_name
+        preferences.set_chat_backend(new_name)
+        # Reflect in the combobox so the UI stays in sync.
+        if hasattr(self, "backend_combo"):
+            for i in range(self.backend_combo.count()):
+                if self.backend_combo.itemData(i) == new_name:
+                    was_blocked = self.backend_combo.blockSignals(True)
+                    self.backend_combo.setCurrentIndex(i)
+                    self.backend_combo.blockSignals(was_blocked)
+                    break
+        return new_name
 
     def _apply_chat_backend(self) -> None:
         from core import preferences
