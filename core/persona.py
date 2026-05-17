@@ -22,12 +22,6 @@ class Persona:
     # time, not baked into system_prompt so users can swap addresses
     # without re-editing the whole persona.
     user_address: str = ""
-    # The AI's relationship to the user, framed from the AI's side --
-    # "妹妹", "管家", "猫", "助理". Combined with user_address (e.g.
-    # 妹妹 + 哥) it gives the LLM enough to lock in tone, intimacy, and
-    # speech patterns without spelling them out in the prompt body.
-    # Empty = no explicit relationship clause.
-    relationship: str = ""
 
     @classmethod
     def from_file(cls, path: str | Path) -> Persona:
@@ -44,7 +38,6 @@ class Persona:
                 if isinstance(e, dict)
             ],
             user_address=str(data.get("user_address", "")).strip(),
-            relationship=str(data.get("relationship", "")).strip(),
         )
 
     @classmethod
@@ -73,7 +66,6 @@ class Persona:
             "display_prefix": self.display_prefix,
             "system_prompt": self.system_prompt,
             "user_address": self.user_address,
-            "relationship": self.relationship,
             "examples": [
                 {"user": u, "assistant": a} for u, a in self.examples
             ],
@@ -99,12 +91,7 @@ class Persona:
         same method to render a read-only preview so users can see what
         the LLM will actually receive.
         """
-        header_lines = [f"角色名：{self.name}"]
-        rel = (self.relationship or "").strip()
-        if rel:
-            header_lines.append(f"你和用户的关系：你是他的{rel}。")
-        parts: list[str] = ["\n".join(header_lines)]
-
+        parts: list[str] = [f"角色名：{self.name}"]
         body = (self.system_prompt or "").strip()
         if body:
             parts.append(body)
