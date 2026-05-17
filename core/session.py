@@ -139,10 +139,17 @@ class ChatSession:
         # system_prompt means users can rotate the address without editing
         # the persona file.
         addr = (persona.user_address or "").strip()
+        examples = list(persona.examples)
         if addr:
             prompt = prompt.rstrip() + f"\n\n用户希望你称呼他为「{addr}」。"
+            # Rewrite the AI's lines in the example dialogs to use the new
+            # address. Without this the few-shot examples keep showing the
+            # model saying "你" and it tends to copy that, ignoring the
+            # system-prompt instruction. We only touch assistant lines; user
+            # lines (where "你" usually refers to the AI) are left alone.
+            examples = [(u, a.replace("你", addr)) for u, a in examples]
         self.persona = prompt
-        self.example_dialogs = list(persona.examples)
+        self.example_dialogs = examples
         self.persona_display_prefix = persona.display_prefix
 
     async def chat(
