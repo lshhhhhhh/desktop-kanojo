@@ -633,8 +633,30 @@ class SettingsDialog(QDialog):
         if parent is not None and hasattr(parent, "live2d_cfg"):
             model_dir = parent.live2d_cfg.model_dir
 
-        if model_dir is None or not model_dir.is_dir():
-            layout.addWidget(QLabel("没有已安装的 Live2D 模型。"))
+        # When no model is installed, this tab doubles as the install wizard
+        # so users don't have to restart the app just to redo a first-run
+        # action that's lived only on launch until now.
+        model_file = model_dir / parent.live2d_cfg.model_file if (
+            model_dir is not None and parent is not None
+        ) else None
+        has_model = model_file is not None and model_file.is_file()
+        if not has_model:
+            layout.addWidget(QLabel("还没有安装 Live2D 模型。"))
+            layout.addWidget(QLabel(
+                "去 Live2D 官方下载一个 sample（推荐带表情的 Mark / Haru），"
+                "然后选择那个 zip 文件就能装上。"
+            ))
+            btn_row = QHBoxLayout()
+            open_site_btn = QPushButton("打开 Live2D 下载页")
+            open_site_btn.clicked.connect(
+                lambda: self._open_url("https://www.live2d.com/en/learn/sample/")
+            )
+            pick_zip_btn = QPushButton("选择已下载的 zip")
+            pick_zip_btn.clicked.connect(self._form_install_zip)
+            btn_row.addWidget(open_site_btn)
+            btn_row.addWidget(pick_zip_btn)
+            btn_row.addStretch(1)
+            layout.addLayout(btn_row)
             layout.addStretch(1)
             return w
 
@@ -909,6 +931,22 @@ class SettingsDialog(QDialog):
         from PySide6.QtGui import QDesktopServices
 
         QDesktopServices.openUrl(QUrl(url))
+
+    def _form_install_zip(self) -> None:
+        """File-picker → installer, same as the first-run wizard but
+        triggered from the form tab so users can install a model any time."""
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog
+
+        zip_str, _ = QFileDialog.getOpenFileName(
+            self, "选择 Live2D 模型 zip", "", "Zip 文件 (*.zip)"
+        )
+        if not zip_str:
+            return
+        parent = self.parent()
+        if parent is not None and hasattr(parent, "_install_live2d_zip"):
+            parent._install_live2d_zip(Path(zip_str))
 
     def _save_api_key(self, env_name: str) -> None:
         import os

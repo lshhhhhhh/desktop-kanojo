@@ -21,17 +21,9 @@ _LINE_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
 # Used by both the first-run wizard and the model settings tab — single
 # source of truth so we don't drift between the two surfaces.
 KEY_SOURCES: dict[str, tuple[str, str]] = {
-    "DEEPSEEK_API_KEY": (
-        "https://platform.deepseek.com/api_keys",
-        "DeepSeek 在中国可访问，注册送免费额度",
-    ),
     "ZHIPU_API_KEY": (
         "https://www.bigmodel.cn/apikey/platform",
         "智谱 GLM-4V-Flash 免费多模态，中国可访问",
-    ),
-    "DASHSCOPE_API_KEY": (
-        "https://bailian.console.aliyun.com/",
-        "阿里百炼（Qwen-VL），新用户送 quota，中国可访问",
     ),
     "OPENAI_API_KEY": (
         "https://platform.openai.com/api-keys",

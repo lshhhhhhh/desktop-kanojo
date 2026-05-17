@@ -20,7 +20,7 @@
 
 - **Live2D 形象** —— 任意 Cubism 4 模型即插即用，自动识别嘴部/表情参数，情绪到表情有衰减映射。
 - **分层记忆** —— 工作窗口 (L1) + 向量检索的对话片段 (L2) + LLM 提炼出的事实（带矛盾链, L3）。用 SQLite + [`sqlite-vec`](https://github.com/asg017/sqlite-vec) 持久化。
-- **任意 OpenAI 兼容后端** —— OpenAI / Gemini（走 OpenAI 兼容端点）/ DeepSeek / LM Studio / Ollama / vLLM / llama.cpp 都能直接接。不同任务（聊天 / 反思 / 视觉）可路由到不同后端。
+- **任意 OpenAI 兼容后端** —— 智谱 / OpenAI / Gemini / LM Studio / Ollama / vLLM / llama.cpp（全部 OpenAI 兼容端点） 都能直接接。不同任务（聊天 / 反思 / 视觉）可路由到不同后端。
 - **语音** —— 默认 [edge-tts](https://github.com/rany2/edge-tts)（免费、即开即用），可切换到本地 [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) 跑克隆声音。流式 PCM 播放走 `QAudioSink`，与 WebView 的 Chromium 音频栈兼容。
 - **主动模式** —— 定时偷瞄屏幕评估"现在值不值得开口"，默认偏静默。
 - **无边框透明窗** —— 顶部拖拽栏、设置弹窗、按设备的音频输出路由、隐私拦截红字、闭眼按钮。
@@ -46,7 +46,7 @@ python -m app.main
 
 第一次启动弹两个对话框：
 
-- **缺 API key** → 默认后端是 [DeepSeek](https://platform.deepseek.com/api_keys)（国内可访问、注册送免费额度）。点「去注册页拿 key」→ 浏览器打开 DeepSeek 控制台 → 注册后复制 key 回到 app 的「设置 → 模型」tab 粘贴。**整套流程 2 分钟**。
+- **缺 API key** → 默认后端是 [智谱 GLM-4V-Flash](https://www.bigmodel.cn/apikey/platform)（国内可访问、免费、多模态）。点「去注册页拿 key」→ 浏览器打开智谱开放平台 → 注册后复制 key 回到 app 的「设置 → 模型」tab 粘贴。**整套流程 2 分钟**。
 - **缺 Live2D 模型** → 点「打开 Live2D 下载页」→ 在
   [Live2D 官方 sample 页](https://www.live2d.com/en/learn/sample/) 挑一个 sample 下载 zip（推荐带表情的 **Mark** 或 **Haru**），回到 app 点「选择已下载的 zip」→ app 自动解压、生成配置、提示重启。
 - 装完模型后到「设置 → 形象」tab 把情绪绑到模型实际的表情/动作上。
@@ -55,7 +55,7 @@ python -m app.main
 
 **声音**：默认 [edge-tts](https://github.com/rany2/edge-tts)（微软 Azure 的免费 TTS，无需 key、即开即用）。想用克隆声音见下方"声音克隆"。
 
-**记忆 / 截屏感知**：聊天记忆默认就跑，会持久化到 `data/memory.sqlite`。截屏主动模式默认开着，10 分钟评估一次——默认 vision 走 **智谱 GLM-4V-Flash**（[bigmodel.cn](https://www.bigmodel.cn/apikey/platform) 免费、国内可访问），添加 `ZHIPU_API_KEY` 后她就能真·看屏幕评论了。
+**记忆 / 截屏感知**：聊天记忆默认就跑，会持久化到 `data/memory.sqlite`。截屏主动模式默认开着，10 分钟评估一次，跟聊天用同一个智谱 key。
 
 无 GUI 命令行模式（适合调试记忆 / 人设）：
 ```powershell
@@ -114,7 +114,7 @@ proactively, and speaks back with a cloned voice.
 
 - **Live2D avatar** — drop in any Cubism 4 model; auto-detected mouth/expression params, decay-based emotion display.
 - **Layered memory** — working window (L1) → episodic store with vector recall (L2) → LLM-distilled facts with contradiction chains (L3). Persists in SQLite via [`sqlite-vec`](https://github.com/asg017/sqlite-vec).
-- **Any OpenAI-compatible backend** — OpenAI, Gemini (OpenAI-compat endpoint), DeepSeek, LM Studio, Ollama, vLLM, llama.cpp server. Route different tasks (chat / reflection / vision) to different backends.
+- **Any OpenAI-compatible backend** — Zhipu, OpenAI, Gemini, LM Studio, Ollama, vLLM, llama.cpp (all OpenAI-compatible endpoints) server. Route different tasks (chat / reflection / vision) to different backends.
 - **Voice** — Microsoft [edge-tts](https://github.com/rany2/edge-tts) out of the box; switch to local [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) for cloned voices. Streaming low-latency PCM playback via `QAudioSink` (zero PortAudio conflicts with the embedded Chromium).
 - **Proactive mode** — periodic screen-aware checks. She decides whether to speak up, biased toward silence unless something's actually worth saying.
 - **Frameless transparent window** — drag-handle title bar, settings dialog, per-device audio output routing, privacy blocklist with visible red indicator, manual "close her eyes" toggle.
@@ -141,12 +141,12 @@ app doesn't find them it falls back to the built-in defaults.
 
 Two prompts on first launch:
 
-- **Missing API key** → the default backend is **DeepSeek**
-  ([platform.deepseek.com](https://platform.deepseek.com/api_keys) — cheap,
-  free signup credit, accessible from anywhere). Click "去注册页拿 key" to
-  open the registration page in your browser, then paste the key into
-  the model tab. International users can also use OpenAI or Gemini — see
-  the model tab for all options.
+- **Missing API key** → the default backend is **Zhipu GLM-4V-Flash**
+  ([bigmodel.cn](https://www.bigmodel.cn/apikey/platform) — free, multimodal,
+  accessible from mainland China). Click "去注册页拿 key" to open the
+  registration page in your browser, then paste the key into the model
+  tab. International users can also use OpenAI or Gemini — see the
+  model tab for all options.
 - **Missing Live2D model** → click "打开 Live2D 下载页", pick a sample
   from [Live2D's official page](https://www.live2d.com/en/learn/sample/)
   (recommend **Mark** or **Haru** — they have expression data), download
@@ -160,12 +160,9 @@ After that, just `python -m app.main` to launch normally.
 **Voice** defaults to [edge-tts](https://github.com/rany2/edge-tts)
 (Microsoft Azure free TTS, no key needed). For cloned voices see below.
 
-**Vision / proactive screen-awareness**: DeepSeek has no multimodal
-endpoint. The default vision backend is **Zhipu GLM-4V-Flash**
-([bigmodel.cn](https://www.bigmodel.cn/apikey/platform),
-free + China-accessible). Add `ZHIPU_API_KEY` in the model tab for real
-screen analysis. International users can also point the `vision` route
-at OpenAI / Gemini in `config.yaml`.
+**Vision / proactive screen-awareness**: GLM-4V-Flash handles both
+chat and vision with the same key. International users can also point
+the `vision` route at OpenAI / Gemini in `config.yaml`.
 
 CLI-only mode (no GUI, no voice) for headless testing:
 ```powershell

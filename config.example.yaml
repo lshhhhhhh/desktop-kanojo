@@ -7,39 +7,18 @@ app:
     transparent: true
 
 brain:
-  # Default = DeepSeek: accessible from mainland China, cheap (~¥1 / 1M tokens),
-  # decent at character cards. Get a key at https://platform.deepseek.com/api_keys.
-  # New users get free credit on signup. Other backends below are listed but
-  # require their own keys — set whichever you have via the settings dialog.
-  default: deepseek-chat
+  # Default = Zhipu GLM-4V-Flash: free, accessible from mainland China,
+  # multimodal (handles both chat and vision). Get a key at
+  # https://www.bigmodel.cn/apikey/platform — new users get free quota.
+  # Other backends below are listed but require their own keys; set
+  # whichever you have via the settings dialog's "模型" tab.
+  default: zhipu-glm-4v-flash
   backends:
-    deepseek-chat:
-      provider: openai_compat
-      base_url: https://api.deepseek.com/v1
-      api_key_env: DEEPSEEK_API_KEY
-      model: deepseek-chat
-      vision: false           # DeepSeek currently has no multimodal endpoint
-    deepseek-reasoner:
-      provider: openai_compat
-      base_url: https://api.deepseek.com/v1
-      api_key_env: DEEPSEEK_API_KEY
-      model: deepseek-reasoner    # slower, for hard reasoning
-      vision: false
     zhipu-glm-4v-flash:
-      # 智谱 GLM-4V-Flash: free, accessible from mainland China, multimodal.
-      # Get a key at https://www.bigmodel.cn/apikey/platform
       provider: openai_compat
       base_url: https://open.bigmodel.cn/api/paas/v4
       api_key_env: ZHIPU_API_KEY
       model: glm-4v-flash
-      vision: true
-    qwen-vl-plus:
-      # Alibaba Qwen-VL: accessible from China, new-user free quota, multimodal.
-      # Get a key at https://bailian.console.aliyun.com/
-      provider: openai_compat
-      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api_key_env: DASHSCOPE_API_KEY
-      model: qwen-vl-plus
       vision: true
     openai-gpt5:
       provider: openai_compat
@@ -67,10 +46,10 @@ brain:
       model: qwen/qwen3-vl-30b
       vision: true
   routing:
-    default: deepseek-chat       # persona-critical chat
-    deep_reasoning: deepseek-reasoner
-    reflection: deepseek-chat    # background fact extraction
-    vision: zhipu-glm-4v-flash   # screen analysis — free + China-accessible
+    default: zhipu-glm-4v-flash      # persona-critical chat
+    deep_reasoning: zhipu-glm-4v-flash
+    reflection: zhipu-glm-4v-flash   # background fact extraction
+    vision: zhipu-glm-4v-flash       # screen analysis
     privacy_strict: local-qwen
 
 embedding:
