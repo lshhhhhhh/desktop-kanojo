@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# App-local state
+config.yaml
+data/
+*.sqlite
+*.sqlite-journal
+logs/
+*.log
+
+# Editor / agent state
+.idea/
+.vscode/
+.claude/
+*.swp
+.DS_Store
+
+# Live2D model assets are large and often non-redistributable; users drop
+# their own in. Keep the folder via .gitkeep, ignore everything else.
+node_modules/
+live2d/models/*
+!live2d/models/.gitkeep

@@ -1,0 +1,126 @@
+app:
+  window:
+    width: 460
+    height: 760
+    always_on_top: true
+    frameless: true
+    transparent: true
+
+brain:
+  # gpt-5.4-mini holds character cards perfectly (0/3 leaks in probe).
+  # Gemini 3.1 Pro fails 4/5 — keep it for reflection (cheap) and vision.
+  default: openai-gpt5
+  backends:
+    openai-gpt5:
+      provider: openai_compat
+      base_url: https://api.openai.com/v1
+      api_key_env: OPENAI_API_KEY
+      model: gpt-5.4-mini   # cheap default; switch to gpt-5.5 / gpt-5.5-pro for harder tasks
+      vision: true
+      supports_temperature: false   # gpt-5.x reasoning models only accept default temp=1
+    gemini-pro:
+      provider: openai_compat
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+      api_key_env: GEMINI_API_KEY
+      model: gemini-3.1-pro-preview
+      vision: true
+      # Note: Gemini's OpenAI-compat endpoint doesn't accept safety_settings.
+      # To tune safety, switch to native google-genai SDK (see roadmap).
+    gemini-flash:
+      provider: openai_compat
+      base_url: https://generativelanguage.googleapis.com/v1beta/openai
+      api_key_env: GEMINI_API_KEY
+      model: gemini-2.5-flash
+      vision: true
+    local-qwen:
+      provider: openai_compat
+      base_url: http://127.0.0.1:1234/v1
+      api_key: lm-studio
+      model: qwen/qwen3-vl-30b
+      vision: true
+  routing:
+    default: openai-gpt5     # persona-critical chat
+    deep_reasoning: openai-gpt5  # bump to gpt-5.5 / gpt-5.5-pro by editing the backend
+    reflection: gemini-flash # background fact extraction (free tier)
+    vision: gemini-pro       # screen analysis (Gemini's multimodal is strong)
+    privacy_strict: local-qwen
+
+embedding:
+  provider: openai_compat
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai
+  api_key_env: GEMINI_API_KEY
+  model: gemini-embedding-001
+  dim: 768
+
+perception:
+  privacy:
+    blur_password_fields: true
+    blocked_window_titles:
+      - "1Password"
+      - "KeePass"
+      - "Bitwarden"
+  proactive:
+    enabled: true              # let her start conversations on her own
+    timer_seconds: 600         # every 10 min the timer fires an eval
+    cooldown_seconds: 600      # ≥10 min between proactive utterances
+    min_silence_after_user: 30 # don't speak in the 30s after user input
+    window_switch_enabled: true
+    idle_threshold_seconds: 600  # consider user "idle" after 10 min of no input
+    poll_interval: 5.0          # how often to check triggers (cheap, no LLM)
+    intent: vision              # routes to gemini-flash for cheap eval
+
+memory:
+  enabled: true
+  db_path: ./data/memory.sqlite
+  top_k_episodes: 5
+  working_window_turns: 10
+  reflection_every_n_turns: 6
+
+voice:
+  enabled: true
+  backend: gpt-sovits            # edge-tts | gpt-sovits
+  edge_tts:
+    voice: zh-CN-XiaoxiaoNeural  # XiaoxiaoNeural / XiaoyiNeural / XiaomoNeural / YunxiNeural ...
+    rate: "+0%"
+    pitch: "+0Hz"
+    volume: "+0%"
+    target_sample_rate: 24000
+  sovits:
+    # Launch the local GPT-SoVITS api_v2 server first
+    # (see tools/start_sovits_server.ps1 and docs/sovits-training.md).
+    # ref_audio / ref_text describe the cloned voice's reference clip
+    # (3–10 s) and its exact transcript — required for zero-shot inference.
+    base_url: http://127.0.0.1:9880
+    ref_audio: "./voices/sample/reference.wav"
+    ref_text: "把这里替换成 ref_audio 这段录音的逐字转录。"
+    ref_lang: zh
+    text_lang: zh
+    sample_rate: 48000
+    media_type: raw                # raw int16 PCM — best for streaming
+    streaming_mode: 3              # 0=off, 1=best quality slowest, 3=fastest
+    min_chunk_length: 16           # smaller = lower latency, more overhead
+    overlap_length: 2
+    chunk_yield_bytes: 9600        # ~100ms at 48kHz int16 mono per AudioChunk
+    speed_factor: 1.0
+    temperature: 1.0
+    top_k: 5
+  stt:
+    provider: faster-whisper
+    model: medium
+    language: zh
+
+persona:
+  active: default
+  path: ./personas
+
+live2d:
+  # Folder name under live2d/models/. The folder must contain an `imouto.yaml`
+  # sidecar describing the model (see docs/live2d-models.md). Drop your own
+  # Live2D model folder under live2d/models/ and point this at it.
+  active_model: default
+
+  # Seconds an emotion-triggered expression sticks before fading back to
+  # neutral. 0 = no decay (expression sticks until the next one). 8s is a
+  # good chat-paced default — long enough to read, short enough to not lock
+  # her into one face.
+  expression_decay_seconds: 8

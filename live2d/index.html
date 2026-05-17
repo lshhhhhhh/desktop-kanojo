@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>imouto stage</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: transparent;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #stage {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  #stage canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    /* Default: events pass through to Qt so window-drag works on empty area.
+       JS flips this to 'auto' while mouse is hovering over the model's bbox,
+       so clicks on the model trigger model-drag instead. */
+    pointer-events: none;
+  }
+  #status {
+    position: absolute;
+    bottom: 6px;
+    left: 8px;
+    color: rgba(255, 182, 217, 0.75);
+    font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 11px;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    z-index: 10;
+  }
+</style>
+<script src="lib/live2dcubismcore.min.js"></script>
+<script src="lib/pixi.min.js"></script>
+<script src="lib/pixi-live2d-display-cubism4.min.js"></script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="status">loading…</div>
+
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  const setStatus = (s) => { status.textContent = s; };
+
+  if (!window.PIXI || !window.PIXI.live2d) { setStatus('pixi-live2d-display not loaded'); return; }
+  if (!window.Live2DCubismCore) { setStatus('Live2DCubismCore not loaded'); return; }
+
+  // Resolve runtime config from the URL query string (passed by app/window.py).
+  const params = new URLSearchParams(window.location.search);
+  const modelPath = params.get('model') || 'models/March_7th/march 7th.model3.json';
+  const initialFitMode = params.get('fit') || 'portrait';
+  const mouthParamId = params.get('mouth') || 'ParamMouthOpenY';
+  let expressionDecayMs = parseInt(params.get('decay') || '8000', 10);
+  if (!Number.isFinite(expressionDecayMs) || expressionDecayMs < 0) {
+    expressionDecayMs = 8000;
+  }
+
+  const stage = document.getElementById('stage');
+  const app = new PIXI.Application({
+    resizeTo: stage,
+    backgroundAlpha: 0,
+    antialias: true,
+    resolution: window.devicePixelRatio || 1,
+    autoDensity: true,
+  });
+  stage.appendChild(app.view);
+  const canvas = app.view;
+
+  setStatus('loading model…');
+  let model;
+  try {
+    model = await PIXI.live2d.Live2DModel.from(modelPath, { autoInteract: false });
+  } catch (e) {
+    setStatus('load error: ' + (e && e.message ? e.message : e));
+    console.error('Live2D load error:', e, 'path:', modelPath);
+    return;
+  }
+  app.stage.addChild(model);
+
+  // -------------------- positioning & fit --------------------
+
+  let fitMode = initialFitMode;
+  // User-dragged absolute position; null = follow auto-fit
+  let userPos = null;
+
+  const fit = () => {
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const mw = model.internalModel.originalWidth || 1;
+    const mh = model.internalModel.originalHeight || 1;
+    let baseX, baseY;
+    if (fitMode === 'portrait') {
+      const scale = (sw / mw) * 1.0;
+      model.scale.set(scale);
+      model.anchor.set(0.5, 0.0);
+      baseX = sw / 2;
+      baseY = 0;
+    } else {
+      const scale = Math.min(sw / mw, sh / mh) * 0.95;
+      model.scale.set(scale);
+      model.anchor.set(0.5, 0.5);
+      baseX = sw / 2;
+      baseY = sh / 2;
+    }
+    if (userPos) {
+      model.x = userPos.x;
+      model.y = userPos.y;
+    } else {
+      model.x = baseX;
+      model.y = baseY;
+    }
+  };
+  fit();
+  new ResizeObserver(fit).observe(stage);
+
+  // -------------------- drag the model + hover-aware pointer-events --------------------
+
+  let hovered = false;
+  let dragging = false;
+  let dragOffset = { x: 0, y: 0 };
+
+  // Check if (x, y) lies inside the model's current bounding box on screen.
+  const isInsideModel = (x, y) => {
+    const b = model.getBounds();
+    return x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
+  };
+
+  window.addEventListener('mousemove', (e) => {
+    // 1) eye tracking — fires regardless of pointer-events
+    try { model.focus(e.clientX, e.clientY); } catch (_) {}
+
+    // 2) drag in progress: update position
+    if (dragging) {
+      userPos = { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y };
+      model.x = userPos.x;
+      model.y = userPos.y;
+      return;
+    }
+
+    // 3) hover state: toggle pointer-events so model gets click events but only on its bbox
+    const over = isInsideModel(e.clientX, e.clientY);
+    if (over !== hovered) {
+      hovered = over;
+      canvas.style.pointerEvents = over ? 'auto' : 'none';
+      canvas.style.cursor = over ? 'move' : 'default';
+    }
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;            // left button only
+    if (!isInsideModel(e.clientX, e.clientY)) return;
+    dragging = true;
+    dragOffset = { x: e.clientX - model.x, y: e.clientY - model.y };
+    e.preventDefault();
+  });
+
+  window.addEventListener('mouseup', () => {
+    dragging = false;
+  });
+
+  // Double-click on model to reset to auto-fit position
+  canvas.addEventListener('dblclick', (e) => {
+    if (!isInsideModel(e.clientX, e.clientY)) return;
+    userPos = null;
+    fit();
+  });
+
+  setStatus('');
+
+  // -------------------- Expression decay --------------------
+  // After setExpression() is called, automatically clear it after N ms unless
+  // the caller opts out via { decay: false } (for outfits / prop holds).
+  let expressionTimer = null;
+  function clearExpressionTimer() {
+    if (expressionTimer) {
+      clearTimeout(expressionTimer);
+      expressionTimer = null;
+    }
+  }
+  function scheduleExpressionDecay() {
+    clearExpressionTimer();
+    if (expressionDecayMs <= 0) return;
+    expressionTimer = setTimeout(() => {
+      try { model.expression(); } catch (_) {}
+      expressionTimer = null;
+    }, expressionDecayMs);
+  }
+
+  // -------------------- JS API for Python --------------------
+  window.imouto = {
+    setExpression(idOrName, options) {
+      try { model.expression(idOrName); } catch (e) { console.warn(e); return; }
+      const opts = options || {};
+      if (opts.decay !== false) scheduleExpressionDecay();
+    },
+    clearExpression() {
+      clearExpressionTimer();
+      try { model.expression(); } catch (e) { console.warn(e); }
+    },
+    setExpressionDecayMs(ms) {
+      const v = Math.max(0, Number(ms) || 0);
+      expressionDecayMs = v;
+      if (expressionTimer && v === 0) clearExpressionTimer();
+      else if (expressionTimer) scheduleExpressionDecay();
+    },
+    randomExpression() {
+      const exprs = (model.internalModel.settings.expressions || []);
+      if (!exprs.length) return;
+      try { model.expression(Math.floor(Math.random() * exprs.length)); } catch (_) {}
+      scheduleExpressionDecay();
+    },
+    playMotion(group, index) {
+      try { model.motion(group, index); } catch (e) { console.warn(e); }
+    },
+    randomMotion() {
+      const groups = Object.keys(model.internalModel.settings.motions || {});
+      if (!groups.length) return;
+      const g = groups[Math.floor(Math.random() * groups.length)];
+      try { model.motion(g); } catch (e) { console.warn(e); }
+    },
+    setMouthOpen(value) {
+      try {
+        const v = Math.max(0, Math.min(1, Number(value) || 0));
+        model.internalModel.coreModel.setParameterValueById(mouthParamId, v);
+      } catch (_) {}
+    },
+    setFitMode(mode) {
+      if (mode === 'portrait' || mode === 'fit') {
+        fitMode = mode;
+        userPos = null;
+        fit();
+      }
+    },
+    resetPosition() {
+      userPos = null;
+      fit();
+    },
+    info() {
+      const s = model.internalModel.settings;
+      return {
+        width: model.internalModel.originalWidth,
+        height: model.internalModel.originalHeight,
+        motions: Object.keys(s.motions || {}),
+        expressions: (s.expressions || []).map((e) => e.Name),
+        decayMs: expressionDecayMs,
+        decayPending: expressionTimer !== null,
+      };
+    },
+  };
+  console.log('imouto live2d loaded:', window.imouto.info());
+})();
+</script>
+</body>
+</html>
