@@ -27,7 +27,12 @@ logs/
 .DS_Store
 
 # Live2D model assets are large and often non-redistributable; users drop
-# their own in. Keep the folder via .gitkeep, ignore everything else.
+# their own in. Keep the folder via .gitkeep, ignore everything else under
+# live2d/ except the hand-tracked stage (index.html, lib/, models/.gitkeep).
 node_modules/
+live2d/*
+!live2d/index.html
+!live2d/lib/
+!live2d/models/
 live2d/models/*
 !live2d/models/.gitkeep

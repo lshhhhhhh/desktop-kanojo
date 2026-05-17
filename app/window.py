@@ -539,14 +539,24 @@ class CompanionWindow(QMainWindow):
             return
 
         preferences.set_live2d_active_model(result.name)
+        summary = f"{result.expressions} 个表情 · {result.motions} 个动作"
         self.chat.show_system_note(
-            f"已安装 Live2D 模型「{result.name}」"
-            f"（{result.expressions} 个表情）。重启 app 让她出现。"
+            f"已安装 Live2D 模型「{result.name}」（{summary}）。重启 app 让她出现。"
         )
         # Offer to restart so the WebView reloads with the new model URL.
         box = QMessageBox(self)
         box.setWindowTitle("安装完成")
-        box.setText(f"已安装「{result.name}」。需要重启 app 才能看到她。")
+        text = f"已安装「{result.name}」（{summary}）。需要重启 app 才能看到她。"
+        # Warn explicitly when the model has no expression data — the emotion
+        # tags her LLM emits will silently no-op on this model, and the user
+        # would otherwise spend time hunting an imaginary bug.
+        if result.expressions == 0:
+            text += (
+                "\n\n注意：这个模型没有表情数据，她不会"
+                "根据情绪变脸。想要完整表情系统，可换其他 sample "
+                "（Mark / Haru / Epsilon 等带表情）。"
+            )
+        box.setText(text)
         restart_btn = box.addButton("现在重启", QMessageBox.ButtonRole.AcceptRole)
         box.addButton("稍后", QMessageBox.ButtonRole.RejectRole)
         box.exec()

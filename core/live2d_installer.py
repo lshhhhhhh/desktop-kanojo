@@ -27,7 +27,8 @@ class InstallResult:
     name: str          # folder name under live2d/models/ (e.g. "Haru")
     model_dir: Path    # absolute path
     model_file: str    # *.model3.json basename
-    expressions: int   # number of expressions detected
+    expressions: int   # number of *.exp3.json files (0 = no facial expressions)
+    motions: int       # number of *.motion3.json files (0 = no animations)
 
 
 class InstallError(Exception):
@@ -154,15 +155,17 @@ def install_zip(zip_path: Path, models_root: Path = MODELS_ROOT) -> InstallResul
         shutil.rmtree(target, ignore_errors=True)
         raise
 
+    motion_count = sum(1 for _ in target.rglob("*.motion3.json"))
     logger.info(
-        "live2d_installer: installed {!r} at {} ({} expressions)",
-        target_name, target, len(expression_entries),
+        "live2d_installer: installed {!r} at {} ({} expressions, {} motions)",
+        target_name, target, len(expression_entries), motion_count,
     )
     return InstallResult(
         name=target_name,
         model_dir=target.resolve(),
         model_file=model3.name,
         expressions=len(expression_entries),
+        motions=motion_count,
     )
 
 
