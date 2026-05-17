@@ -44,6 +44,30 @@ def load_config() -> dict:
     raise FileNotFoundError("config.yaml or config.example.yaml not found in cwd")
 
 
+def _apply_voice_overrides(cfg: dict) -> None:
+    """Merge preferences.yaml's voice_overrides into cfg['voice'].
+
+    The user edits voice settings in the settings dialog; persisting those
+    to config.yaml would clobber its comments. Keeping them in preferences
+    and overlaying at startup is the same pattern we use for chat_backend
+    and live2d_active_model.
+
+    Nested keys (edge_tts, sovits) are merged one level deep so the user
+    can override just `voice` without losing other edge_tts params.
+    """
+    from core import preferences
+
+    overrides = preferences.get_voice_overrides()
+    if not overrides:
+        return
+    voice = cfg.setdefault("voice", {})
+    for k, v in overrides.items():
+        if isinstance(v, dict) and isinstance(voice.get(k), dict):
+            voice[k] = {**voice[k], **v}
+        else:
+            voice[k] = v
+
+
 def _merge_new_keys_from_example(user_cfg: dict, example_cfg: dict) -> None:
     """Pull in newly-shipped backends from config.example.yaml that the
     user's config.yaml predates (zhipu, qwen-vl, future additions). Only
@@ -74,6 +98,12 @@ def _merge_new_keys_from_example(user_cfg: dict, example_cfg: dict) -> None:
 
 def main() -> int:
     cfg = load_config()
+    # Apply user-edited voice settings from the UI before any code reads
+    # cfg["voice"]. Shallow merge so a saved backend/voice/rate from the
+    # settings dialog wins over config.example defaults; nested dicts
+    # (edge_tts:, sovits:) are merged one level deep.
+    _apply_voice_overrides(cfg)
+
     app = QApplication(sys.argv)
     app.setApplicationName("imouto")
 

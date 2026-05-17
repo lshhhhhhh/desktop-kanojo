@@ -81,3 +81,27 @@ def set_live2d_active_model(
     else:
         prefs["live2d_active_model"] = model_name
     save(prefs, path)
+
+
+def get_voice_overrides(path: Path = DEFAULT_PATH) -> dict[str, Any]:
+    """User edits to the voice section (backend selection + edge-tts /
+    gpt-sovits parameters). Returned dict is shallow-merged into
+    cfg['voice'] at startup so the user's UI choices win over
+    config.example.yaml defaults without touching config.yaml comments.
+
+    Schema (all keys optional):
+      backend: 'edge-tts' | 'gpt-sovits'
+      edge_tts: { voice, rate, pitch, volume }
+      sovits: { base_url, ref_audio, ref_text, ref_lang, text_lang, ... }
+    """
+    val = load(path).get("voice_overrides") or {}
+    return val if isinstance(val, dict) else {}
+
+
+def set_voice_overrides(overrides: dict[str, Any], path: Path = DEFAULT_PATH) -> None:
+    prefs = load(path)
+    if not overrides:
+        prefs.pop("voice_overrides", None)
+    else:
+        prefs["voice_overrides"] = overrides
+    save(prefs, path)

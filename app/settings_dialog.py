@@ -418,7 +418,103 @@ class SettingsDialog(QDialog):
         w = QWidget()
         layout = QVBoxLayout(w)
 
-        layout.addWidget(QLabel("音频输出设备："))
+        # === TTS backend selection + per-backend params ===
+        layout.addWidget(QLabel("<b>TTS 后端</b>"))
+        voice_cfg = (self.cfg.get("voice") or {})
+        overrides = preferences.get_voice_overrides()
+        self._voice_overrides = dict(overrides)  # working copy
+
+        cur_backend = (
+            overrides.get("backend")
+            or voice_cfg.get("backend")
+            or "edge-tts"
+        )
+
+        self.tts_backend_combo = QComboBox()
+        self.tts_backend_combo.addItem(
+            "edge-tts（微软 Azure 免费 TTS，联网即可、零本地依赖）", "edge-tts"
+        )
+        self.tts_backend_combo.addItem(
+            "gpt-sovits（本地克隆声音，需先跑 api_v2 server）", "gpt-sovits"
+        )
+        for i in range(self.tts_backend_combo.count()):
+            if self.tts_backend_combo.itemData(i) == cur_backend:
+                self.tts_backend_combo.setCurrentIndex(i)
+                break
+        self.tts_backend_combo.currentIndexChanged.connect(self._tts_backend_changed)
+        layout.addWidget(self.tts_backend_combo)
+
+        # edge-tts params (voice / rate / pitch)
+        self._edge_box = QWidget()
+        edge_form = QFormLayout(self._edge_box)
+        edge_cfg = dict(voice_cfg.get("edge_tts") or {})
+        edge_cfg.update(overrides.get("edge_tts") or {})
+
+        self.edge_voice_combo = QComboBox()
+        # A curated subset; users can hand-edit config.yaml for the rest.
+        for v in [
+            "zh-CN-XiaoxiaoNeural",
+            "zh-CN-XiaoyiNeural",
+            "zh-CN-YunjianNeural",
+            "zh-CN-YunxiNeural",
+            "zh-CN-YunxiaNeural",
+            "zh-CN-YunyangNeural",
+            "zh-CN-liaoning-XiaobeiNeural",
+            "zh-CN-shaanxi-XiaoniNeural",
+        ]:
+            self.edge_voice_combo.addItem(v)
+        cur_voice = edge_cfg.get("voice", "zh-CN-XiaoxiaoNeural")
+        idx = self.edge_voice_combo.findText(cur_voice)
+        if idx >= 0:
+            self.edge_voice_combo.setCurrentIndex(idx)
+        else:
+            self.edge_voice_combo.addItem(cur_voice)
+            self.edge_voice_combo.setCurrentText(cur_voice)
+        edge_form.addRow("声音：", self.edge_voice_combo)
+
+        self.edge_rate_edit = QLineEdit(edge_cfg.get("rate", "+0%"))
+        self.edge_rate_edit.setPlaceholderText("如 +0% / +20% / -10%")
+        edge_form.addRow("语速 rate：", self.edge_rate_edit)
+
+        self.edge_pitch_edit = QLineEdit(edge_cfg.get("pitch", "+0Hz"))
+        self.edge_pitch_edit.setPlaceholderText("如 +0Hz / +50Hz / -20Hz")
+        edge_form.addRow("音调 pitch：", self.edge_pitch_edit)
+
+        self.edge_volume_edit = QLineEdit(edge_cfg.get("volume", "+0%"))
+        edge_form.addRow("音量 volume：", self.edge_volume_edit)
+        layout.addWidget(self._edge_box)
+
+        # gpt-sovits params
+        self._sovits_box = QWidget()
+        sovits_form = QFormLayout(self._sovits_box)
+        sovits_cfg = dict(voice_cfg.get("sovits") or {})
+        sovits_cfg.update(overrides.get("sovits") or {})
+
+        self.sovits_url_edit = QLineEdit(
+            sovits_cfg.get("base_url", "http://127.0.0.1:9880")
+        )
+        sovits_form.addRow("base_url：", self.sovits_url_edit)
+        self.sovits_ref_audio_edit = QLineEdit(sovits_cfg.get("ref_audio", ""))
+        self.sovits_ref_audio_edit.setPlaceholderText("3-10s 干净参考音频的绝对路径")
+        sovits_form.addRow("ref_audio：", self.sovits_ref_audio_edit)
+        self.sovits_ref_text_edit = QLineEdit(sovits_cfg.get("ref_text", ""))
+        self.sovits_ref_text_edit.setPlaceholderText("ref_audio 的逐字转录")
+        sovits_form.addRow("ref_text：", self.sovits_ref_text_edit)
+        layout.addWidget(self._sovits_box)
+
+        # Save row for backend params
+        save_voice_row = QHBoxLayout()
+        save_voice_row.addStretch(1)
+        save_voice_btn = QPushButton("保存语音设置")
+        save_voice_btn.clicked.connect(self._save_voice_overrides)
+        save_voice_row.addWidget(save_voice_btn)
+        layout.addLayout(save_voice_row)
+
+        self._tts_backend_changed()  # toggle visibility based on initial pick
+
+        # === Audio output device (existing) ===
+        layout.addSpacing(12)
+        layout.addWidget(QLabel("<b>音频输出设备</b>"))
         self.audio_combo = QComboBox()
 
         # First item = system default (passing None to QAudioSink uses it)
@@ -471,6 +567,42 @@ class SettingsDialog(QDialog):
 
         layout.addStretch(1)
         return w
+
+    def _tts_backend_changed(self) -> None:
+        """Show only the params box matching the selected backend."""
+        backend = self.tts_backend_combo.currentData()
+        self._edge_box.setVisible(backend == "edge-tts")
+        self._sovits_box.setVisible(backend == "gpt-sovits")
+
+    def _save_voice_overrides(self) -> None:
+        """Persist the TTS backend choice + per-backend params to
+        preferences.yaml. Takes effect on next restart (the Speaker is
+        constructed once at startup; can't hot-swap the underlying backend
+        without rebuilding the whole pipeline)."""
+        from core import preferences
+
+        backend = self.tts_backend_combo.currentData()
+        overrides: dict = {"backend": backend}
+        if backend == "edge-tts":
+            overrides["edge_tts"] = {
+                "voice": self.edge_voice_combo.currentText().strip(),
+                "rate": self.edge_rate_edit.text().strip() or "+0%",
+                "pitch": self.edge_pitch_edit.text().strip() or "+0Hz",
+                "volume": self.edge_volume_edit.text().strip() or "+0%",
+            }
+        else:  # gpt-sovits
+            overrides["sovits"] = {
+                "base_url": self.sovits_url_edit.text().strip(),
+                "ref_audio": self.sovits_ref_audio_edit.text().strip(),
+                "ref_text": self.sovits_ref_text_edit.text().strip(),
+            }
+        preferences.set_voice_overrides(overrides)
+        self._voice_overrides = overrides
+        QMessageBox.information(
+            self,
+            "已保存",
+            f"语音设置已保存（{backend}）。重启 app 后生效。",
+        )
 
     def _selected_audio_device(self):
         """Returns the QAudioDevice for the current combo selection, or
