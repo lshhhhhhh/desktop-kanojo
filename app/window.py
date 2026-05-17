@@ -407,6 +407,10 @@ class CompanionWindow(QMainWindow):
             )
             self._init_observer(cfg)
             self._init_voice(cfg)
+            # First-run guidance: if the default chat backend has no API key,
+            # chat will silently 401 on first message. Pop a one-shot dialog
+            # right after the window paints and offer to open the model tab.
+            QTimer.singleShot(800, self._check_required_api_keys)
         else:
             self.chat.show_system_note("no session bound — chat disabled")
             self.chat.set_input_enabled(False)
@@ -471,6 +475,34 @@ class CompanionWindow(QMainWindow):
         """Speaker callback: drive Live2D mouth open via JS."""
         js = f"if(window.imouto) window.imouto.setMouthOpen({value:.3f});"
         self.view.page().runJavaScript(js)
+
+    def _check_required_api_keys(self) -> None:
+        """If the active chat backend has no API key configured, surface a
+        dialog and offer to open the model tab. Runs once at startup; can
+        be retriggered after user action by calling this again."""
+        if self.session is None or self.session.router is None:
+            return
+        backend = self.session.router.select(self.session.intent)
+        # OpenAICompatBackend stores api_key as "" when missing (see
+        # core/brain/openai_compat.py). Treat both empty and unset as missing.
+        has_key = bool(getattr(backend, "api_key", "") or "")
+        if has_key:
+            return
+
+        from PySide6.QtWidgets import QMessageBox
+
+        box = QMessageBox(self)
+        box.setWindowTitle("需要 API 密钥")
+        box.setText(
+            f"当前默认后端 <b>{backend.name}</b>（{backend.model}）没有 API 密钥，"
+            "聊天会请求失败。"
+        )
+        box.setInformativeText("现在打开设置去填写吗？")
+        open_btn = box.addButton("打开设置", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("以后再说", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is open_btn:
+            self._on_settings()
 
     def _resolve_saved_audio_device(self):
         """Look up the saved audio output device by id (or None for default)."""
