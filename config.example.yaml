@@ -25,6 +25,22 @@ brain:
       api_key_env: DEEPSEEK_API_KEY
       model: deepseek-reasoner    # slower, for hard reasoning
       vision: false
+    zhipu-glm-4v-flash:
+      # 智谱 GLM-4V-Flash: free, accessible from mainland China, multimodal.
+      # Get a key at https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys
+      provider: openai_compat
+      base_url: https://open.bigmodel.cn/api/paas/v4
+      api_key_env: ZHIPU_API_KEY
+      model: glm-4v-flash
+      vision: true
+    qwen-vl-plus:
+      # Alibaba Qwen-VL: accessible from China, new-user free quota, multimodal.
+      # Get a key at https://bailian.console.aliyun.com/
+      provider: openai_compat
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key_env: DASHSCOPE_API_KEY
+      model: qwen-vl-plus
+      vision: true
     openai-gpt5:
       provider: openai_compat
       base_url: https://api.openai.com/v1
@@ -54,7 +70,7 @@ brain:
     default: deepseek-chat       # persona-critical chat
     deep_reasoning: deepseek-reasoner
     reflection: deepseek-chat    # background fact extraction
-    vision: gemini-pro           # screen analysis — only fires if you have GEMINI_API_KEY
+    vision: zhipu-glm-4v-flash   # screen analysis — free + China-accessible
     privacy_strict: local-qwen
 
 embedding:

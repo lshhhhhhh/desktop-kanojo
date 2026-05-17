@@ -645,6 +645,14 @@ class CompanionWindow(QMainWindow):
             "https://platform.deepseek.com/api_keys",
             "DeepSeek 在中国可访问，注册送免费额度",
         ),
+        "ZHIPU_API_KEY": (
+            "https://www.bigmodel.cn/usercenter/proj-mgmt/apikeys",
+            "智谱 GLM-4V-Flash 免费多模态，中国可访问",
+        ),
+        "DASHSCOPE_API_KEY": (
+            "https://bailian.console.aliyun.com/",
+            "阿里百炼（Qwen-VL），新用户送 quota，中国可访问",
+        ),
         "OPENAI_API_KEY": (
             "https://platform.openai.com/api-keys",
             "OpenAI（需国际网络）",
