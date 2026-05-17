@@ -12,6 +12,7 @@ from .win32 import get_active_window_title, get_idle_seconds
 if TYPE_CHECKING:
     from core.session import ChatSession
 
+    from .privacy import PrivacyGuard
     from .screen import Capture
 
 
@@ -46,10 +47,12 @@ class ProactiveObserver:
         idle_threshold_seconds: float = 600,
         poll_interval: float = 5.0,
         is_busy: IsBusyFn | None = None,
+        privacy: PrivacyGuard | None = None,
     ) -> None:
         self.session = session
         self.capture = capture
         self.on_speak = on_speak
+        self.privacy = privacy
         self._enabled = enabled
         self.timer_seconds = timer_seconds
         self.cooldown_seconds = cooldown_seconds
@@ -178,6 +181,19 @@ class ProactiveObserver:
     async def _do_evaluation(self, triggers: list[str]) -> None:
         now = time.monotonic()
         self._last_eval_at = now
+
+        # Privacy guard: if the active window matches a blocked-title rule
+        # (password managers, etc.), drop the eval entirely so no screenshot
+        # is captured or shipped to a remote LLM.
+        if self.privacy is not None:
+            blocked, matched = self.privacy.check_active_window()
+            if blocked:
+                logger.info(
+                    "proactive: privacy block, skipping eval (active: {!r})",
+                    matched,
+                )
+                return
+
         context = {
             "window_title": get_active_window_title(),
             "idle_seconds": int(get_idle_seconds()),

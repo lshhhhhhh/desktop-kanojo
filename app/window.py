@@ -148,6 +148,17 @@ class TitleBar(QFrame):
         layout.addWidget(self.status)
         layout.addStretch(1)
 
+        # Privacy indicator: hidden by default, flips visible when the
+        # active window matches a blocked title. Hard red + lock icon to
+        # be unmissable; tooltip explains the gate is preventing screen
+        # data from going to a remote LLM.
+        self.privacy_label = QLabel("", self)
+        self.privacy_label.setStyleSheet(
+            "color: #ff4040; font-weight: bold; padding: 0 8px;"
+        )
+        self.privacy_label.hide()
+        layout.addWidget(self.privacy_label)
+
         self.settings_btn = QPushButton("⚙", self)
         self.settings_btn.setFixedSize(26, 26)
         self.settings_btn.setStyleSheet(SETTINGS_BTN_FLOAT_STYLE)
@@ -170,6 +181,19 @@ class TitleBar(QFrame):
         """Update the small subtitle inside the title bar (server status etc.)."""
         self.status.setText(text)
         self.status.setStyleSheet(f"color: {color}; padding-left: 10px;")
+
+    def set_privacy_active(self, active: bool, reason: str = "") -> None:
+        """Toggle the red privacy indicator. When active, the title bar
+        shows '🔒 Privacy' and screen-bearing requests are blocked."""
+        if active:
+            self.privacy_label.setText("🔒 Privacy")
+            self.privacy_label.setToolTip(
+                f"前台窗口命中黑名单（{reason}）。"
+                f"\n屏幕内容不会发送到远程 LLM。"
+            )
+            self.privacy_label.show()
+        else:
+            self.privacy_label.hide()
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -537,13 +561,17 @@ class CompanionWindow(QMainWindow):
         return None
 
     def _init_observer(self, cfg: dict) -> None:
-        from core.perception import Capture, ProactiveObserver
+        from core.perception import Capture, PrivacyGuard, ProactiveObserver
 
         pcfg = (cfg.get("perception", {}) or {}).get("proactive", {}) or {}
         if not pcfg:
             return
-        # Eagerly create capture so observer + manual share the same instance
+        # Eagerly create capture so observer + manual share the same instance.
+        # Privacy guard is shared too — the title bar polls it for the red
+        # indicator, manual screenshot path gates on it, and observer aborts
+        # an eval if the foreground window matches.
         self._capture = Capture(max_edge=1024)
+        self.privacy_guard = PrivacyGuard.from_config(cfg)
         self.observer = ProactiveObserver(
             session=self.session,
             capture=self._capture,
@@ -556,8 +584,18 @@ class CompanionWindow(QMainWindow):
             idle_threshold_seconds=pcfg.get("idle_threshold_seconds", 600),
             poll_interval=pcfg.get("poll_interval", 5.0),
             is_busy=lambda: self._chat_busy,
+            privacy=self.privacy_guard,
         )
         self.observer.start()
+        # Title bar red indicator: poll the foreground window every 2 s and
+        # toggle the visual lock-icon. 2 s is the right tradeoff: fast enough
+        # to feel reactive when alt-tabbing to 1Password, slow enough to be
+        # negligible CPU (one GetWindowText call).
+        self._privacy_active = False
+        self._privacy_timer = QTimer(self)
+        self._privacy_timer.timeout.connect(self._poll_privacy_state)
+        self._privacy_timer.start(2000)
+        self._poll_privacy_state()
         if self.observer.is_enabled():
             self.chat.show_system_note(
                 f"主动模式已启用（每 {int(self.observer.timer_seconds // 60)} 分钟评估，"
@@ -593,7 +631,31 @@ class CompanionWindow(QMainWindow):
     def _on_screenshot(self, text: str = "") -> None:
         if self.session is None:
             return
+        # Manual screenshot also respects the privacy guard — same blocklist
+        # that gates proactive evals, but here we surface the rejection
+        # directly in the chat panel so the user understands why nothing
+        # was sent.
+        guard = getattr(self, "privacy_guard", None)
+        if guard is not None:
+            blocked, matched = guard.check_active_window()
+            if blocked:
+                self.chat.show_system_note(
+                    f"🔒 隐私拦截：前台窗口「{matched}」命中黑名单，截屏未发送。"
+                )
+                return
         asyncio.ensure_future(self._handle_screenshot(text))
+
+    def _poll_privacy_state(self) -> None:
+        """Check the foreground window every 2 s and reflect the result in
+        the title bar. Idempotent — only updates UI when state changes."""
+        guard = getattr(self, "privacy_guard", None)
+        if guard is None:
+            return
+        blocked, matched = guard.check_active_window()
+        if blocked == self._privacy_active:
+            return
+        self._privacy_active = blocked
+        self.title_bar.set_privacy_active(blocked, matched)
 
     def _on_settings(self) -> None:
         from app.settings_dialog import SettingsDialog
