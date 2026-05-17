@@ -127,6 +127,7 @@ class TitleBar(QFrame):
 
     settings_clicked = Signal()
     close_clicked = Signal()
+    proactive_toggled = Signal(bool)  # True = she can see; False = blindfolded
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -159,6 +160,18 @@ class TitleBar(QFrame):
         self.privacy_label.hide()
         layout.addWidget(self.privacy_label)
 
+        # Eye toggle: lets the user manually blind her to the screen even
+        # when no blocklist rule matches. 👁 = proactive screen-eval enabled,
+        # 🙈 = paused. Clicking flips the state and emits proactive_toggled.
+        self.eye_btn = QPushButton("👁", self)
+        self.eye_btn.setFixedSize(26, 26)
+        self.eye_btn.setCheckable(True)
+        self.eye_btn.setStyleSheet(SETTINGS_BTN_FLOAT_STYLE)
+        self.eye_btn.setToolTip("她正在看着屏幕（点击让她闭眼）")
+        self.eye_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.eye_btn.toggled.connect(self._on_eye_toggled)
+        layout.addWidget(self.eye_btn)
+
         self.settings_btn = QPushButton("⚙", self)
         self.settings_btn.setFixedSize(26, 26)
         self.settings_btn.setStyleSheet(SETTINGS_BTN_FLOAT_STYLE)
@@ -181,6 +194,23 @@ class TitleBar(QFrame):
         """Update the small subtitle inside the title bar (server status etc.)."""
         self.status.setText(text)
         self.status.setStyleSheet(f"color: {color}; padding-left: 10px;")
+
+    def _on_eye_toggled(self, blinded: bool) -> None:
+        if blinded:
+            self.eye_btn.setText("🙈")
+            self.eye_btn.setToolTip("她在闭眼，看不到屏幕（点击恢复）")
+        else:
+            self.eye_btn.setText("👁")
+            self.eye_btn.setToolTip("她正在看着屏幕（点击让她闭眼）")
+        self.proactive_toggled.emit(not blinded)
+
+    def set_proactive_enabled(self, enabled: bool) -> None:
+        """Sync the eye button to an external enabled-state change (e.g.
+        flipped from the settings dialog). Avoids re-emitting the signal."""
+        was_blocking = self.eye_btn.blockSignals(True)
+        self.eye_btn.setChecked(not enabled)
+        self._on_eye_toggled(not enabled)
+        self.eye_btn.blockSignals(was_blocking)
 
     def set_privacy_active(self, active: bool, reason: str = "") -> None:
         """Toggle the red privacy indicator. When active, the title bar
@@ -410,6 +440,7 @@ class CompanionWindow(QMainWindow):
         self.title_bar = TitleBar(self)
         self.title_bar.settings_clicked.connect(self._on_settings)
         self.title_bar.close_clicked.connect(self.close)
+        self.title_bar.proactive_toggled.connect(self._on_eye_toggled)
 
         central = QWidget(self)
         central.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -644,6 +675,15 @@ class CompanionWindow(QMainWindow):
                 )
                 return
         asyncio.ensure_future(self._handle_screenshot(text))
+
+    def _on_eye_toggled(self, can_see: bool) -> None:
+        """Title-bar eye toggle: stop / resume proactive screen evaluation.
+        Manual screenshot still works (user-initiated); this only gates the
+        observer's autonomous screen peeks."""
+        if self.observer is not None:
+            self.observer.set_enabled(can_see)
+        note = "👁 已恢复主动观察" if can_see else "🙈 已暂停主动观察（手动截屏不受影响）"
+        self.chat.show_system_note(note)
 
     def _poll_privacy_state(self) -> None:
         """Check the foreground window every 2 s and reflect the result in
