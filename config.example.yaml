@@ -102,7 +102,11 @@ memory:
 
 voice:
   enabled: true
-  backend: gpt-sovits            # edge-tts | gpt-sovits
+  # edge-tts: free Microsoft Azure TTS via an unofficial wrapper, no local
+  # server needed, works out of the box. Switch to 'gpt-sovits' if you've
+  # trained a cloned voice and have its api_v2 server running locally
+  # (see docs/sovits-training.md).
+  backend: edge-tts              # edge-tts | gpt-sovits
   edge_tts:
     voice: zh-CN-XiaoxiaoNeural  # XiaoxiaoNeural / XiaoyiNeural / XiaomoNeural / YunxiNeural ...
     rate: "+0%"
