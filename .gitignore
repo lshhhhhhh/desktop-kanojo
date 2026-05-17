@@ -11,8 +11,12 @@ env/
 _models_test_wizard_backup/
 *.egg-info/
 build/
+build*/
 dist/
+dist*/
 .pytest_cache/
+# PyInstaller leftovers
+*.spec.bak
 
 # App-local state
 config.yaml
