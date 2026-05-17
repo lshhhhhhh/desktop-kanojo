@@ -810,40 +810,41 @@ class SettingsDialog(QDialog):
         bindings: ModelBindings = load_bindings(model_dir)
         self._form_bindings = bindings
 
-        # Header row: current model name + download / switch buttons. Even
-        # when a model is installed, users may want to try a different one
-        # or grab another sample without restarting -- this used to require
-        # editing config.yaml by hand.
-        header = QHBoxLayout()
-        header.addWidget(QLabel(
+        # Two-row header: status on top, controls below. A single row
+        # couldn't fit all widgets at 640px dialog width -- the switch
+        # combobox got clipped off-screen and users couldn't find it.
+
+        # Row 1: current model name + counts
+        layout.addWidget(QLabel(
             f"当前模型：<b>{model_dir.name}</b>  ·  "
             f"{len(bindings.expressions)} 个表情 · "
             f"{len(bindings.motions)} 个动作"
         ))
-        header.addStretch(1)
-        site_btn = QPushButton("下载新模型")
-        site_btn.clicked.connect(
-            lambda: self._open_url("https://www.live2d.com/en/learn/sample/")
-        )
-        switch_btn = QPushButton("装新模型 zip")
-        switch_btn.clicked.connect(self._form_install_zip)
-        header.addWidget(site_btn)
-        header.addWidget(switch_btn)
 
-        # Combo to switch between already-installed models (no zip needed).
+        # Row 2: switch dropdown + install / download buttons
+        controls = QHBoxLayout()
         installed = self._list_installed_models()
         if len(installed) > 1:
+            controls.addWidget(QLabel("切换已装："))
             switch_combo = QComboBox()
             for name in installed:
                 switch_combo.addItem(name)
             switch_combo.setCurrentText(model_dir.name)
             switch_combo.currentTextChanged.connect(self._form_switch_to)
-            header.addWidget(QLabel("切换："))
-            header.addWidget(switch_combo)
+            controls.addWidget(switch_combo, 1)
 
-        header_w = QWidget()
-        header_w.setLayout(header)
-        layout.addWidget(header_w)
+        switch_btn = QPushButton("装新模型 zip")
+        switch_btn.clicked.connect(self._form_install_zip)
+        controls.addWidget(switch_btn)
+
+        site_btn = QPushButton("下载页")
+        site_btn.clicked.connect(
+            lambda: self._open_url("https://www.live2d.com/en/learn/sample/")
+        )
+        controls.addWidget(site_btn)
+        controls_w = QWidget()
+        controls_w.setLayout(controls)
+        layout.addWidget(controls_w)
 
         # Option list shared by every dropdown. Each entry's userData is
         # either:
