@@ -50,6 +50,10 @@ brain:
       api_key_env: GEMINI_API_KEY
       model: gemini-3.1-pro-preview
       vision: true
+      # Note: Google Search grounding via this OpenAI-compat endpoint is
+      # not currently supported for chat models (only image-generation
+      # ones). To get real web search, see docs roadmap on adding a
+      # Tavily/Brave search tool + agent loop.
     gemini-flash:
       provider: openai_compat
       base_url: https://generativelanguage.googleapis.com/v1beta/openai
