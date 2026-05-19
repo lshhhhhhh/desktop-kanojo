@@ -1,5 +1,10 @@
 # desktop-kanojo
 
+> ⚠️ **后续开发已迁移至 [Open-meido](https://github.com/lshhhhhhh/OpenMeido)。** 这个仓库不再维护，最新功能（多 backend、Live2D 模型管理、TTS、主动模式、首次配置向导等）都在新仓库继续开发。
+
+> ⚠️ **Active development has moved to [Open-meido](https://github.com/lshhhhhhh/OpenMeido).** This repository is no longer maintained; all new features (multi-backend support, Live2D model manager, TTS, proactive mode, setup wizard, etc.) ship there.
+
+
 [![CI](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml/badge.svg)](https://github.com/lshhhhhhh/desktop-kanojo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/lshhhhhhh/desktop-kanojo?include_prereleases&sort=semver)](https://github.com/lshhhhhhh/desktop-kanojo/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
